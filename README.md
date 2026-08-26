@@ -2,7 +2,7 @@
 
 Framefolio 是一个以照片展示为核心的极简摄影作品集。项目使用 Nuxt 4 构建，原始照片保存在运行时数据目录中，通过离线同步命令提取 EXIF，并生成适合网页加载的 WebP 缩略图和预览图。
 
-> 当前进度：工程基线、照片同步管线、只读照片 API 和媒体路由已经完成。Gallery 界面、Viewer 与 Docker 部署仍在开发中。
+> 当前进度：工程基线、照片同步管线、只读照片 API、媒体路由和 Gallery 视觉基线已经完成。Editorial / Justified 布局、Viewer 与 Docker 部署仍在开发中。
 
 ## 已实现能力
 
@@ -18,6 +18,7 @@ Framefolio 是一个以照片展示为核心的极简摄影作品集。项目使
 - 单张照片失败时保留上一份可用索引，并以非零状态结束命令。
 - 通过 `GET /api/photos` 返回不含内部同步字段的公开照片数据。
 - 通过 `GET /media/:filename` 安全提供带长期缓存的 WebP 生成图。
+- 提供响应式 Gallery 页面外壳、图片比例占位、加载状态和移动端基础照片流。
 
 HEIC、HEIF、AVIF、GIF、相机 RAW 和多页图片暂不支持，可以在后续处理管线中按格式扩展。
 
@@ -72,7 +73,7 @@ NUXT_GALLERY_DATA_DIR=/absolute/path/to/data pnpm gallery:sync
 pnpm dev
 ```
 
-默认地址为 `http://localhost:3000`。当前浏览器端 Gallery 尚未实现，现阶段可以独立验证照片同步管线和只读 API。
+默认地址为 `http://localhost:3000`。当前已提供基础照片流，Editorial、Justified 和 Viewer 交互将在后续阶段完成。
 
 同步完成并启动开发服务器后，可以访问：
 

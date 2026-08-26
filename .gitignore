@@ -35,3 +35,10 @@ data/generated/*
 data/photos.json
 data/photos.json.tmp
 data/photos.json.*.tmp
+
+# Local AIDesigner artifacts and generated host configuration
+.aidesigner/*
+!.aidesigner/.gitkeep
+.agents/skills/aidesigner-frontend/
+.claude/
+.mcp.json
