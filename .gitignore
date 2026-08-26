@@ -1,0 +1,37 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+coverage
+*.tsbuildinfo
+.eslintcache
+
+# Node dependencies
+node_modules
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+.vscode
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Runtime gallery data
+data/originals/*
+!data/originals/.gitkeep
+data/generated/*
+!data/generated/.gitkeep
+data/photos.json
+data/photos.json.tmp
+data/photos.json.*.tmp
