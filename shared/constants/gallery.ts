@@ -8,6 +8,10 @@ export const GENERATED_DIRECTORY_NAME = 'generated'
 export const GALLERY_INDEX_FILENAME = 'photos.json'
 export const GENERATED_IMAGE_EXTENSION = 'webp'
 export const GENERATED_IMAGE_COLOURSPACE = 'srgb'
+export const GENERATED_IMAGE_HASH_LENGTH = 16
+export const GENERATED_IMAGE_FILENAME_PATTERN = new RegExp(
+  `^[a-f0-9]{${GENERATED_IMAGE_HASH_LENGTH}}-[a-f0-9]{${GENERATED_IMAGE_HASH_LENGTH}}-(thumbnail|preview)\\.${GENERATED_IMAGE_EXTENSION}$`
+)
 export const SUPPORTED_IMAGE_EXTENSIONS = new Set([
   '.jpeg',
   '.jpg',

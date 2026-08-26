@@ -17,7 +17,7 @@ data/originals
 
 开发中优先保证数据同步可靠、运行时边界清晰和图片展示稳定，再完善排版与交互细节。
 
-当前已完成阶段 0–1，即工程基线和照片同步管线；下一阶段为运行时 API 与媒体路由。
+当前已完成阶段 0–2，即工程基线、照片同步管线、运行时 API 与媒体路由；下一阶段为应用外壳与基础视觉。
 
 ## 2. MVP 边界
 
@@ -138,7 +138,10 @@ app/
 └── app.vue
 server/
 ├── api/photos.get.ts
-└── routes/media/[filename].get.ts
+├── routes/media/[filename].get.ts
+└── utils/
+    ├── gallery-index.ts
+    └── gallery-media.ts
 shared/
 ├── constants/gallery.ts
 ├── node/gallery-paths.ts
@@ -153,6 +156,7 @@ tests/
 ├── fixtures/
 └── unit/
     ├── gallery-baseline.test.ts
+    ├── gallery-runtime.test.ts
     └── gallery-sync.test.ts
 Dockerfile
 docker-compose.yml
@@ -228,13 +232,13 @@ pnpm test
 
 **任务**
 
-- [ ] 实现 `GET /api/photos`，读取并校验 `photos.json`。
-- [ ] 将内部索引映射为公开照片数组。
-- [ ] 当索引不存在时返回空数组，当索引损坏时返回明确的服务端错误。
-- [ ] 实现 `GET /media/:filename`。
-- [ ] 校验文件名、扩展名和最终解析路径，阻止路径穿越。
-- [ ] 添加 WebP MIME 和长期不可变缓存头。
-- [ ] 验证 API 请求过程不引入 Sharp、exifr 或原图扫描。
+- [x] 实现 `GET /api/photos`，读取并校验 `photos.json`。
+- [x] 将内部索引映射为公开照片数组。
+- [x] 当索引不存在时返回空数组，当索引损坏时返回明确的服务端错误。
+- [x] 实现 `GET /media/:filename`。
+- [x] 校验文件名、扩展名和最终解析路径，阻止路径穿越。
+- [x] 添加 WebP MIME 和长期不可变缓存头。
+- [x] 验证 API 请求过程不引入 Sharp、exifr 或原图扫描。
 
 **验收标准**
 

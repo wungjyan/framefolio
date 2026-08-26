@@ -17,6 +17,8 @@ import sharp from 'sharp'
 import {
   GENERATED_IMAGE_COLOURSPACE,
   GENERATED_IMAGE_EXTENSION,
+  GENERATED_IMAGE_FILENAME_PATTERN,
+  GENERATED_IMAGE_HASH_LENGTH,
   GALLERY_PIPELINE_VERSION,
   GALLERY_SCHEMA_VERSION,
   IMAGE_RESIZE_OPTIONS,
@@ -34,11 +36,6 @@ import type {
   PhotoIndexItem,
   PhotoSourceState
 } from '../../shared/types/photo'
-
-const HASH_LENGTH = 16
-const GENERATED_FILE_PATTERN = new RegExp(
-  `^[a-f0-9]{${HASH_LENGTH}}-[a-f0-9]{${HASH_LENGTH}}-(thumbnail|preview)\\.${GENERATED_IMAGE_EXTENSION}$`
-)
 
 const EXIF_FIELDS = [
   'Make',
@@ -510,7 +507,7 @@ async function cleanUnreferencedGeneratedFiles(
   await Promise.all(entries.map(async (entry) => {
     if (
       !entry.isFile()
-      || !GENERATED_FILE_PATTERN.test(entry.name)
+      || !GENERATED_IMAGE_FILENAME_PATTERN.test(entry.name)
       || referencedFiles.has(entry.name)
     ) {
       return
@@ -570,7 +567,7 @@ function generatedFilenameFromUrl(url: string): string | undefined {
   }
 
   const filename = url.slice(prefix.length)
-  return GENERATED_FILE_PATTERN.test(filename) ? filename : undefined
+  return GENERATED_IMAGE_FILENAME_PATTERN.test(filename) ? filename : undefined
 }
 
 function sourcesMatch(left: PhotoSourceState, right: PhotoSourceState): boolean {
@@ -599,7 +596,10 @@ function comparePhotos(left: PhotoIndexItem, right: PhotoIndexItem): number {
 }
 
 function shortHash(value: string): string {
-  return createHash('sha256').update(value).digest('hex').slice(0, HASH_LENGTH)
+  return createHash('sha256')
+    .update(value)
+    .digest('hex')
+    .slice(0, GENERATED_IMAGE_HASH_LENGTH)
 }
 
 function normalizeDate(value: unknown): string | undefined {
