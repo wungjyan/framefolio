@@ -1,121 +1,153 @@
 <script setup lang="ts">
-import type { GalleryLayout } from '../../utils/gallery-layout'
+import type { GalleryLayout } from "../../utils/gallery-layout";
+import type { GalleryTheme } from "../../utils/theme";
 import {
   createHeaderScrollTracker,
   resetHeaderScrollTracker,
-  updateHeaderVisibility
-} from '../../utils/header-scroll'
+  updateHeaderVisibility,
+} from "../../utils/header-scroll";
 
-const props = withDefaults(defineProps<{
-  layout: GalleryLayout
-  autoHide: boolean
-  suspended?: boolean
-}>(), {
-  suspended: false
-})
+const props = withDefaults(
+  defineProps<{
+    layout: GalleryLayout;
+    theme: GalleryTheme;
+    autoHide: boolean;
+    suspended?: boolean;
+  }>(),
+  {
+    suspended: false,
+  },
+);
 
 const emit = defineEmits<{
-  selectLayout: [layout: GalleryLayout]
-}>()
+  selectLayout: [layout: GalleryLayout];
+  selectTheme: [theme: GalleryTheme];
+}>();
 
-const hidden = ref(false)
-const targetLayout = computed<GalleryLayout>(() => (
-  props.layout === 'editorial' ? 'justified' : 'editorial'
-))
-const targetLayoutName = computed(() => (
-  targetLayout.value === 'editorial' ? 'Editorial' : 'Justified'
-))
-const tracker = createHeaderScrollTracker()
+const hidden = ref(false);
+const targetLayout = computed<GalleryLayout>(() =>
+  props.layout === "editorial" ? "justified" : "editorial",
+);
+const currentLayoutName = computed(() =>
+  props.layout === "editorial" ? "Editorial" : "Justified",
+);
+const targetLayoutName = computed(() =>
+  targetLayout.value === "editorial" ? "Editorial" : "Justified",
+);
+const targetTheme = computed<GalleryTheme>(() =>
+  props.theme === "dark" ? "light" : "dark",
+);
+const currentThemeName = computed(() =>
+  props.theme === "dark" ? "深色主题" : "浅色主题",
+);
+const targetThemeName = computed(() =>
+  targetTheme.value === "dark" ? "深色主题" : "浅色主题",
+);
+const tracker = createHeaderScrollTracker();
 
-let scrollFrame: number | undefined
-let resetFrame: number | undefined
-let listening = false
+let scrollFrame: number | undefined;
+let resetFrame: number | undefined;
+let listening = false;
 
 onMounted(() => {
-  resetTracking()
-  syncScrollListener()
-})
+  resetTracking();
+  syncScrollListener();
+});
 
-watch(() => props.autoHide, () => {
-  syncScrollListener()
+watch(
+  () => props.autoHide,
+  () => {
+    syncScrollListener();
 
-  if (!props.autoHide) {
-    hidden.value = false
-  }
+    if (!props.autoHide) {
+      hidden.value = false;
+    }
 
-  scheduleTrackingReset()
-})
+    scheduleTrackingReset();
+  },
+);
 
-watch(() => props.suspended, () => {
-  scheduleTrackingReset()
-})
+watch(
+  () => props.suspended,
+  () => {
+    scheduleTrackingReset();
+  },
+);
 
-watch(() => props.layout, async () => {
-  hidden.value = false
-  await nextTick()
-  scheduleTrackingReset()
-})
+watch(
+  () => props.layout,
+  async () => {
+    hidden.value = false;
+    await nextTick();
+    scheduleTrackingReset();
+  },
+);
 
 onBeforeUnmount(() => {
-  window.cancelAnimationFrame(scrollFrame ?? 0)
-  window.cancelAnimationFrame(resetFrame ?? 0)
-  stopScrollListener()
-})
+  window.cancelAnimationFrame(scrollFrame ?? 0);
+  window.cancelAnimationFrame(resetFrame ?? 0);
+  stopScrollListener();
+});
 
 function selectTargetLayout(): void {
-  hidden.value = false
-  emit('selectLayout', targetLayout.value)
+  hidden.value = false;
+  emit("selectLayout", targetLayout.value);
+}
+
+function selectTargetTheme(): void {
+  hidden.value = false;
+  emit("selectTheme", targetTheme.value);
 }
 
 function syncScrollListener(): void {
   if (props.autoHide && !listening) {
-    window.addEventListener('scroll', scheduleScrollUpdate, { passive: true })
-    listening = true
+    window.addEventListener("scroll", scheduleScrollUpdate, { passive: true });
+    listening = true;
   } else if (!props.autoHide) {
-    stopScrollListener()
+    stopScrollListener();
   }
 }
 
 function stopScrollListener(): void {
   if (!listening) {
-    return
+    return;
   }
 
-  window.removeEventListener('scroll', scheduleScrollUpdate)
-  listening = false
+  window.removeEventListener("scroll", scheduleScrollUpdate);
+  listening = false;
 }
 
 function scheduleScrollUpdate(): void {
   if (scrollFrame !== undefined) {
-    return
+    return;
   }
 
   scrollFrame = window.requestAnimationFrame(() => {
-    scrollFrame = undefined
+    scrollFrame = undefined;
 
     if (!props.autoHide || props.suspended) {
-      resetTracking()
-      return
+      resetTracking();
+      return;
     }
 
     hidden.value = updateHeaderVisibility(
       tracker,
       window.scrollY,
-      hidden.value
-    )
-  })
+      hidden.value,
+    );
+  });
 }
 
 function scheduleTrackingReset(): void {
-  window.cancelAnimationFrame(resetFrame ?? 0)
+  window.cancelAnimationFrame(resetFrame ?? 0);
   resetFrame = window.requestAnimationFrame(() => {
-    resetFrame = undefined
-    resetTracking()
-  })
+    resetFrame = undefined;
+    resetTracking();
+  });
 }
 
 function resetTracking(): void {
-  resetHeaderScrollTracker(tracker, window.scrollY)
+  resetHeaderScrollTracker(tracker, window.scrollY);
 }
 </script>
 
@@ -133,28 +165,49 @@ function resetTracking(): void {
       </NuxtLink>
     </h1>
 
-    <nav class="layout-switch" aria-label="画廊布局">
+    <nav class="header-controls" aria-label="画廊设置">
       <button
         type="button"
-        :aria-label="`切换到 ${targetLayoutName} 布局`"
-        :title="`切换到 ${targetLayoutName}`"
+        class="layout-switch"
+        :aria-label="`当前为 ${currentLayoutName} 布局，切换到 ${targetLayoutName} 布局`"
+        :title="`当前：${currentLayoutName}（切换到 ${targetLayoutName}）`"
         @click="selectTargetLayout"
       >
+        <svg v-if="layout === 'editorial'" viewBox="0 0 24 24" aria-hidden="true">
+          <rect width="7" height="9" x="3" y="3" rx="1" />
+          <rect width="7" height="5" x="14" y="3" rx="1" />
+          <rect width="7" height="9" x="14" y="12" rx="1" />
+          <rect width="7" height="5" x="3" y="16" rx="1" />
+        </svg>
+        <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+          <rect width="7" height="7" x="3" y="3" rx="1" />
+          <rect width="7" height="7" x="14" y="3" rx="1" />
+          <rect width="7" height="7" x="14" y="14" rx="1" />
+          <rect width="7" height="7" x="3" y="14" rx="1" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        class="theme-toggle"
+        :aria-label="`当前为${currentThemeName}，切换到${targetThemeName}`"
+        :title="`当前：${currentThemeName}（切换到${targetThemeName}）`"
+        @click="selectTargetTheme"
+      >
         <svg
-          v-if="targetLayout === 'editorial'"
-          viewBox="0 0 20 20"
+          class="theme-toggle__icon theme-toggle__icon--dark"
+          viewBox="0 0 24 24"
           aria-hidden="true"
         >
-          <rect x="1" y="1" width="11" height="8" />
-          <rect x="14" y="1" width="5" height="5" />
-          <rect x="1" y="11" width="5" height="8" />
-          <rect x="8" y="11" width="11" height="8" />
+          <path d="M12 3a6.8 6.8 0 0 0 9 9 9 9 0 1 1-9-9Z" />
         </svg>
-        <svg v-else viewBox="0 0 20 20" aria-hidden="true">
-          <rect x="1" y="2" width="7" height="6" />
-          <rect x="10" y="2" width="9" height="6" />
-          <rect x="1" y="11" width="10" height="7" />
-          <rect x="13" y="11" width="6" height="7" />
+        <svg
+          class="theme-toggle__icon theme-toggle__icon--light"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
         </svg>
       </button>
     </nav>
@@ -187,7 +240,7 @@ function resetTracking(): void {
 }
 
 .gallery-header[data-hidden="true"] .gallery-wordmark,
-.gallery-header[data-hidden="true"] .layout-switch {
+.gallery-header[data-hidden="true"] .header-controls {
   pointer-events: none;
 }
 
@@ -216,12 +269,14 @@ function resetTracking(): void {
   outline-offset: 4px;
 }
 
-.layout-switch {
-  display: none;
+.header-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--gallery-space-sm);
   pointer-events: auto;
 }
 
-.layout-switch button {
+.header-controls button {
   width: 1.75rem;
   height: 1.75rem;
   padding: var(--gallery-space-xs);
@@ -234,21 +289,35 @@ function resetTracking(): void {
   transition: color var(--gallery-motion-fast) var(--gallery-ease);
 }
 
-.layout-switch button:hover {
+.header-controls button:hover {
   color: var(--gallery-ink);
 }
 
-.layout-switch button:focus-visible {
+.header-controls button:focus-visible {
   color: var(--gallery-ink);
   outline: 1px solid currentColor;
   outline-offset: 2px;
 }
 
-.layout-switch svg {
+.header-controls svg {
   width: 100%;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+.theme-toggle__icon {
+  display: none;
+}
+
+.theme-toggle__icon--light {
+  display: block;
+}
+
+.header-controls .layout-switch {
+  display: none;
 }
 
 @media (min-width: 48rem) {
@@ -256,7 +325,7 @@ function resetTracking(): void {
     padding-top: 2rem;
   }
 
-  .layout-switch {
+  .header-controls .layout-switch {
     display: block;
   }
 }

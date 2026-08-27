@@ -22,6 +22,7 @@ Framefolio 是一个以照片展示为核心的极简摄影作品集。项目使
 - 桌面端支持 Editorial 与 Justified 布局切换，移动端固定使用单列照片流。
 - 点击照片可进入全屏 Viewer，支持关闭、非循环前后导航、方向键与 `Escape`。
 - Viewer 锁定背景滚动、约束焦点并在关闭后返回原照片，按已有字段显示极简 EXIF。
+- 支持浅色 / 深色双主题：首次访问跟随系统偏好，手动切换后记住选择；移动端同样显示切换按钮，刷新无闪屏。
 
 HEIC、HEIF、AVIF、GIF、相机 RAW 和多页图片暂不支持，可以在后续处理管线中按格式扩展。
 
@@ -76,7 +77,7 @@ NUXT_GALLERY_DATA_DIR=/absolute/path/to/data pnpm gallery:sync
 pnpm dev
 ```
 
-默认地址为 `http://localhost:3000`。桌面端可以切换 Editorial 与 Justified，移动端自动使用单列布局。点击任意照片可打开 Viewer；使用左右方向键切换照片，按 `Escape` 关闭。
+默认地址为 `http://localhost:3000`。桌面端可以切换 Editorial 与 Justified，移动端自动使用单列布局。右上角图标可切换浅色 / 深色主题。点击任意照片可打开 Viewer；使用左右方向键切换照片，按 `Escape` 关闭。
 
 同步完成并启动开发服务器后，可以访问：
 

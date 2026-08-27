@@ -9,6 +9,7 @@ const {
   previewEnabled,
   setLayout
 } = useGalleryLayout()
+const { theme, toggleTheme } = useTheme()
 const selectedPhotoId = ref<string>()
 const viewerTrigger = shallowRef<HTMLButtonElement>()
 const {
@@ -44,9 +45,11 @@ async function closeViewer(): Promise<void> {
   <div class="gallery-page">
     <GalleryHeader
       :layout="layout"
+      :theme="theme"
       :auto-hide="isDesktop"
       :suspended="Boolean(selectedPhotoId)"
       @select-layout="setLayout"
+      @select-theme="toggleTheme"
     />
 
     <main class="gallery-main">
