@@ -6,7 +6,8 @@ import {
   writeStoredGalleryLayout
 } from '../../app/composables/useGalleryLayout'
 import {
-  buildEditorialGroups,
+  buildEditorialItems,
+  buildEditorialRows,
   buildJustifiedRows,
   classifyPhotoOrientation
 } from '../../app/utils/gallery-layout'
@@ -22,32 +23,27 @@ describe('editorial gallery layout', () => {
       .toBe('square')
   })
 
-  it('builds deterministic groups selected from photo orientation', () => {
+  it('builds deterministic items with source order and orientation', () => {
     const photos = [
       createPhoto('a', 1600, 900),
       createPhoto('b', 900, 1600),
-      createPhoto('c', 900, 1600),
-      createPhoto('d', 900, 1600),
-      createPhoto('e', 1600, 900),
-      createPhoto('f', 1000, 1000),
-      createPhoto('g', 1000, 1000)
+      createPhoto('c', 1000, 1000)
     ]
 
-    const first = buildEditorialGroups(photos)
-    const second = buildEditorialGroups(photos)
+    const first = buildEditorialItems(photos)
+    const second = buildEditorialItems(photos)
 
     expect(second).toEqual(first)
-    expect(first.map(group => group.pattern)).toEqual([
-      'mixed-pair',
-      'portrait-pair',
-      'staggered-pair',
-      'single-aside'
+    expect(first.map(item => item.photo.id)).toEqual(['a', 'b', 'c'])
+    expect(first.map(item => item.sourceIndex)).toEqual([0, 1, 2])
+    expect(first.map(item => item.orientation)).toEqual([
+      'landscape',
+      'portrait',
+      'square'
     ])
-    expect(first.flatMap(group => group.items.map(item => item.photo.id)))
-      .toEqual(photos.map(photo => photo.id))
   })
 
-  it('preserves every photo for empty, odd, and even collection sizes', () => {
+  it('preserves every photo for any collection size', () => {
     const photos = [
       createPhoto('a', 1600, 900),
       createPhoto('b', 900, 1600),
@@ -60,31 +56,26 @@ describe('editorial gallery layout', () => {
 
     for (let count = 0; count <= photos.length; count += 1) {
       const input = photos.slice(0, count)
-      const output = buildEditorialGroups(input)
-        .flatMap(group => group.items.map(item => item.photo.id))
+      const output = buildEditorialItems(input)
+        .map(item => item.photo.id)
 
       expect(output).toEqual(input.map(photo => photo.id))
       expect(new Set(output).size).toBe(count)
     }
   })
 
-  it('uses pairs throughout the collection and leaves at most one final item', () => {
-    const photos = Array.from({ length: 7 }, (_, index) => (
-      createPhoto(String(index), 1600, 900)
+  it('builds fixed-size rows and preserves one final partial row', () => {
+    const photos = Array.from({ length: 10 }, (_, index) => (
+      createPhoto(String(index), index % 2 === 0 ? 1600 : 900, 1200)
     ))
 
-    for (let count = 2; count <= photos.length; count += 1) {
-      const groups = buildEditorialGroups(photos.slice(0, count))
-      const groupsBeforeLast = groups.slice(0, -1)
-      const lastGroup = groups.at(-1)
+    const rows = buildEditorialRows(photos, 3)
 
-      expect(groupsBeforeLast.every(group => group.items.length === 2)).toBe(true)
-      expect(lastGroup?.items).toHaveLength(count % 2 === 0 ? 2 : 1)
-      expect(groups.findIndex(group => group.items.length === 1))
-        .toBe(count % 2 === 0 ? -1 : groups.length - 1)
-    }
-
-    expect(buildEditorialGroups(photos.slice(0, 1))[0]?.pattern).toBe('feature')
+    expect(rows.map(row => row.items.length)).toEqual([3, 3, 3, 1])
+    expect(rows.flatMap(row => row.items.map(item => item.photo.id)))
+      .toEqual(photos.map(photo => photo.id))
+    expect(buildEditorialRows(photos, 0)).toEqual([])
+    expect(buildEditorialRows(photos, 2.5)).toEqual([])
   })
 })
 

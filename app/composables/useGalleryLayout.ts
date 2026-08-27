@@ -39,7 +39,6 @@ export function useGalleryLayout() {
     isDesktop,
     isMobile: computed(() => isMounted.value && !isDesktop.value),
     layout,
-    previewEnabled: computed(() => isMounted.value && isDesktop.value),
     setLayout
   }
 }

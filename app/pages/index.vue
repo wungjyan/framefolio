@@ -6,7 +6,6 @@ const {
   isDesktop,
   isMobile,
   layout,
-  previewEnabled,
   setLayout
 } = useGalleryLayout()
 const { theme, toggleTheme } = useTheme()
@@ -104,7 +103,6 @@ async function closeViewer(): Promise<void> {
       <GalleryEditorial
         v-else
         :photos="photos"
-        :preview-enabled="previewEnabled"
         :selected-photo-id="selectedPhotoId"
         @select="selectPhoto"
       />

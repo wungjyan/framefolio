@@ -2,12 +2,6 @@ import type { GalleryPhoto } from '../../shared/types/photo'
 
 export type GalleryLayout = 'editorial' | 'justified'
 export type PhotoOrientation = 'landscape' | 'portrait' | 'square'
-export type EditorialPattern =
-  | 'feature'
-  | 'mixed-pair'
-  | 'portrait-pair'
-  | 'staggered-pair'
-  | 'single-aside'
 
 export interface EditorialItem {
   photo: GalleryPhoto
@@ -15,11 +9,9 @@ export interface EditorialItem {
   sourceIndex: number
 }
 
-export interface EditorialGroup {
+export interface EditorialRow {
   id: string
-  pattern: EditorialPattern
   items: EditorialItem[]
-  side: 'left' | 'right'
 }
 
 export interface JustifiedItem {
@@ -61,45 +53,34 @@ export function classifyPhotoOrientation(
   return 'square'
 }
 
-export function buildEditorialGroups(photos: GalleryPhoto[]): EditorialGroup[] {
-  if (photos.length === 0) {
-    return []
-  }
-
-  const items = photos.map((photo, sourceIndex): EditorialItem => ({
+export function buildEditorialItems(photos: GalleryPhoto[]): EditorialItem[] {
+  return photos.map((photo, sourceIndex): EditorialItem => ({
     photo,
     sourceIndex,
     orientation: classifyPhotoOrientation(photo)
   }))
-  const firstItem = items[0] as EditorialItem
+}
 
-  if (items.length === 1) {
-    return [createEditorialGroup('feature', [firstItem], 0)]
+export function buildEditorialRows(
+  photos: GalleryPhoto[],
+  itemsPerRow: number
+): EditorialRow[] {
+  if (!Number.isInteger(itemsPerRow) || itemsPerRow <= 0) {
+    return []
   }
 
-  const groups: EditorialGroup[] = []
-  let itemIndex = 0
-  let groupIndex = 0
+  const items = buildEditorialItems(photos)
+  const rows: EditorialRow[] = []
 
-  while (itemIndex < items.length) {
-    const first = items[itemIndex] as EditorialItem
-    const second = items[itemIndex + 1]
-
-    if (!second) {
-      groups.push(createEditorialGroup('single-aside', [first], groupIndex))
-      break
-    }
-
-    groups.push(createEditorialGroup(
-      selectPairPattern(first.orientation, second.orientation),
-      [first, second],
-      groupIndex
-    ))
-    itemIndex += 2
-    groupIndex += 1
+  for (let index = 0; index < items.length; index += itemsPerRow) {
+    const rowItems = items.slice(index, index + itemsPerRow)
+    rows.push({
+      id: rowItems.map(item => item.photo.id).join('-'),
+      items: rowItems
+    })
   }
 
-  return groups
+  return rows
 }
 
 export function buildJustifiedRows(
@@ -155,34 +136,6 @@ export function buildJustifiedRows(
   }
 
   return rows
-}
-
-function createEditorialGroup(
-  pattern: EditorialPattern,
-  items: EditorialItem[],
-  groupIndex: number
-): EditorialGroup {
-  return {
-    id: items.map(item => item.photo.id).join('-'),
-    pattern,
-    items,
-    side: groupIndex % 2 === 0 ? 'left' : 'right'
-  }
-}
-
-function selectPairPattern(
-  first: PhotoOrientation,
-  second: PhotoOrientation
-): EditorialPattern {
-  if (first === 'portrait' && second === 'portrait') {
-    return 'portrait-pair'
-  }
-
-  if (first === 'portrait' || second === 'portrait') {
-    return 'mixed-pair'
-  }
-
-  return 'staggered-pair'
 }
 
 function createJustifiedRow(

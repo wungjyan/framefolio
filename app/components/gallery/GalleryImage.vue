@@ -5,11 +5,9 @@ const props = withDefaults(defineProps<{
   photo: GalleryPhoto
   priority?: boolean
   selected?: boolean
-  variant?: 'thumbnail' | 'preview'
 }>(), {
   priority: false,
-  selected: false,
-  variant: 'thumbnail'
+  selected: false
 })
 
 const emit = defineEmits<{
@@ -36,7 +34,7 @@ function selectPhoto(event: MouseEvent): void {
   >
     <img
       class="gallery-image__media"
-      :src="variant === 'preview' ? photo.preview : photo.thumbnail"
+      :src="photo.thumbnail"
       alt=""
       :width="photo.width"
       :height="photo.height"
