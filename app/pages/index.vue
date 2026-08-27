@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type { GalleryPhoto, PhotosResponse } from '../../shared/types/photo'
 
-type GalleryLayout = 'editorial' | 'justified'
-
-const layout = ref<GalleryLayout>('editorial')
+const {
+  isMobile,
+  layout,
+  previewEnabled,
+  setLayout
+} = useGalleryLayout()
 const selectedPhotoId = ref<string>()
 const {
   data: photos,
@@ -33,8 +36,9 @@ function selectPhoto(photo: GalleryPhoto): void {
         <button
           type="button"
           aria-label="Editorial 布局"
+          title="Editorial"
           :aria-pressed="layout === 'editorial'"
-          @click="layout = 'editorial'"
+          @click="setLayout('editorial')"
         >
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <rect x="1" y="1" width="11" height="8" />
@@ -46,8 +50,9 @@ function selectPhoto(photo: GalleryPhoto): void {
         <button
           type="button"
           aria-label="Justified 布局"
+          title="Justified"
           :aria-pressed="layout === 'justified'"
-          @click="layout = 'justified'"
+          @click="setLayout('justified')"
         >
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <rect x="1" y="2" width="7" height="6" />
@@ -94,16 +99,27 @@ function selectPhoto(photo: GalleryPhoto): void {
         </svg>
       </section>
 
-      <ol v-else class="gallery-foundation" :data-layout="layout">
-        <li v-for="(photo, index) in photos" :key="photo.id">
-          <GalleryImage
-            :photo="photo"
-            :priority="index === 0"
-            :selected="selectedPhotoId === photo.id"
-            @select="selectPhoto"
-          />
-        </li>
-      </ol>
+      <GalleryMobile
+        v-else-if="isMobile"
+        :photos="photos"
+        :selected-photo-id="selectedPhotoId"
+        @select="selectPhoto"
+      />
+
+      <GalleryJustified
+        v-else-if="layout === 'justified'"
+        :photos="photos"
+        :selected-photo-id="selectedPhotoId"
+        @select="selectPhoto"
+      />
+
+      <GalleryEditorial
+        v-else
+        :photos="photos"
+        :preview-enabled="previewEnabled"
+        :selected-photo-id="selectedPhotoId"
+        @select="selectPhoto"
+      />
     </main>
   </div>
 </template>
@@ -196,15 +212,6 @@ function selectPhoto(photo: GalleryPhoto): void {
   min-height: 100vh;
   padding: var(--gallery-header-height) var(--gallery-gutter) var(--gallery-space-lg);
   margin: 0 auto;
-}
-
-.gallery-foundation {
-  display: grid;
-  width: min(100%, var(--gallery-image-width));
-  padding: 0;
-  margin: 0 auto;
-  list-style: none;
-  gap: var(--gallery-space-lg);
 }
 
 .gallery-loading {
