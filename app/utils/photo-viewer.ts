@@ -10,7 +10,7 @@ export function buildPhotoMetadata(photo: GalleryPhoto): PhotoMetadata {
   const camera = formatCamera(photo.cameraMake, photo.cameraModel)
   const equipment = joinParts([camera, photo.lens])
   const exposure = joinParts([
-    formatNumber(photo.focalLength, 'mm'),
+    formatFocalLength(photo.focalLength, photo.focalLength35mm),
     formatNumber(photo.aperture, 'f/'),
     photo.shutterSpeed,
     formatNumber(photo.iso, 'ISO ')
@@ -22,6 +22,20 @@ export function buildPhotoMetadata(photo: GalleryPhoto): PhotoMetadata {
     ...(exposure ? { exposure } : {}),
     ...(date ? { date } : {})
   }
+}
+
+function formatFocalLength(
+  focalLength?: number,
+  focalLength35mm?: number
+): string | undefined {
+  const physical = formatNumber(focalLength, 'mm')
+  const equivalent = formatNumber(focalLength35mm, 'mm')
+
+  if (physical && equivalent) {
+    return `${physical}（等效 ${equivalent}）`
+  }
+
+  return physical ?? (equivalent ? `等效 ${equivalent}` : undefined)
 }
 
 function formatCamera(make?: string, model?: string): string | undefined {

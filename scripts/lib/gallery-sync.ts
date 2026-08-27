@@ -44,6 +44,7 @@ const EXIF_FIELDS = [
   'LensInfo',
   'LensModel',
   'FocalLength',
+  'FocalLengthIn35mmFormat',
   'FNumber',
   'ExposureTime',
   'ISO',
@@ -70,6 +71,7 @@ interface ExifData {
   LensInfo?: unknown
   LensModel?: unknown
   FocalLength?: unknown
+  FocalLengthIn35mmFormat?: unknown
   FNumber?: unknown
   ExposureTime?: unknown
   ISO?: unknown
@@ -154,7 +156,7 @@ export function normalizeShutterSpeed(value: unknown): string | undefined {
   const reciprocal = 1 / exposure
 
   if (reciprocal >= 2) {
-    return `1/${formatNumber(reciprocal)}s`
+    return `1/${Math.round(reciprocal)}s`
   }
 
   return `${formatNumber(exposure)}s`
@@ -415,6 +417,7 @@ async function readExifData(
     cameraModel: toCleanString(data.Model),
     lens: toCleanString(data.LensModel ?? data.Lens ?? data.LensInfo),
     focalLength: toPositiveNumber(data.FocalLength),
+    focalLength35mm: toPositiveInteger(data.FocalLengthIn35mmFormat),
     aperture: toPositiveNumber(data.FNumber),
     shutterSpeed: normalizeShutterSpeed(data.ExposureTime),
     iso: toPositiveInteger(data.ISO)

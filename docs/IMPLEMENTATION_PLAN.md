@@ -87,7 +87,7 @@ GET /media/:filename
 ```ts
 interface GalleryIndex {
   schemaVersion: 1
-  pipelineVersion: 1
+  pipelineVersion: 2
   generatedAt: string
   photos: PhotoIndexItem[]
 }

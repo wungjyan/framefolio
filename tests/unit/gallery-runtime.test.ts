@@ -52,7 +52,9 @@ describe('gallery runtime index', () => {
       width: photo.width,
       height: photo.height,
       takenAt: photo.takenAt,
-      cameraModel: photo.cameraModel
+      cameraModel: photo.cameraModel,
+      focalLength: photo.focalLength,
+      focalLength35mm: photo.focalLength35mm
     }])
   })
 
@@ -124,6 +126,8 @@ function createPhoto(): PhotoIndexItem {
     height: 1600,
     takenAt: '2026-08-20T12:00:00.000Z',
     cameraModel: 'Example Camera',
+    focalLength: 6.54,
+    focalLength35mm: 35,
     source: {
       size: 1024,
       mtimeMs: 1000,

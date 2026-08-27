@@ -16,6 +16,7 @@ import {
   createPhotoId,
   createPhotoRevision,
   ensureGalleryDirectories,
+  normalizeShutterSpeed,
   runGallerySync
 } from '../../scripts/lib/gallery-sync'
 import { resolveGalleryPaths, type GalleryPaths } from '../../shared/node/gallery-paths'
@@ -33,6 +34,12 @@ afterEach(async () => {
 })
 
 describe('gallery sync pipeline', () => {
+  it('formats fractional shutter speeds with an integer denominator', () => {
+    expect(normalizeShutterSpeed(0.03)).toBe('1/33s')
+    expect(normalizeShutterSpeed(1 / 250)).toBe('1/250s')
+    expect(normalizeShutterSpeed(2)).toBe('2s')
+  })
+
   it('generates both variants and skips an unchanged photo', async () => {
     const paths = await createGalleryWorkspace()
     await createJpeg(join(paths.originals, 'without-exif.jpg'), 1200, 800)

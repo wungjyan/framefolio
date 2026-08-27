@@ -88,6 +88,7 @@ generated/
   lens?: string
 
   focalLength?: number
+  focalLength35mm?: number
   aperture?: number
   shutterSpeed?: string
   iso?: number

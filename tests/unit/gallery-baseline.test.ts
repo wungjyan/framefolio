@@ -35,7 +35,7 @@ afterEach(async () => {
 describe('gallery baseline', () => {
   it('keeps the schema and image processing contract stable', () => {
     expect(GALLERY_SCHEMA_VERSION).toBe(1)
-    expect(GALLERY_PIPELINE_VERSION).toBe(1)
+    expect(GALLERY_PIPELINE_VERSION).toBe(2)
     expect(GENERATED_IMAGE_EXTENSION).toBe('webp')
     expect(GENERATED_IMAGE_COLOURSPACE).toBe('srgb')
     expect(IMAGE_RESIZE_OPTIONS).toEqual({

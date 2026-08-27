@@ -12,13 +12,14 @@ describe('photo viewer metadata', () => {
       cameraModel: 'Sony A7 IV',
       lens: 'FE 35mm F1.4 GM',
       focalLength: 35,
+      focalLength35mm: 35,
       aperture: 2.8,
       shutterSpeed: '1/250s',
       iso: 100,
       takenAt: '2026-08-20T12:00:00.000Z'
     }))).toEqual({
       equipment: 'Sony A7 IV · FE 35mm F1.4 GM',
-      exposure: '35mm · f/2.8 · 1/250s · ISO 100',
+      exposure: '35mm（等效 35mm） · f/2.8 · 1/250s · ISO 100',
       date: '2026.08.20'
     })
   })
@@ -33,6 +34,21 @@ describe('photo viewer metadata', () => {
     })
 
     expect(buildPhotoMetadata(createPhoto())).toEqual({})
+  })
+
+  it('shows physical and optional 35mm-equivalent focal lengths', () => {
+    expect(buildPhotoMetadata(createPhoto({
+      focalLength: 2.32,
+      focalLength35mm: 25
+    })).exposure).toBe('2.32mm（等效 25mm）')
+
+    expect(buildPhotoMetadata(createPhoto({
+      focalLength: 2.32
+    })).exposure).toBe('2.32mm')
+
+    expect(buildPhotoMetadata(createPhoto({
+      focalLength35mm: 25
+    })).exposure).toBe('等效 25mm')
   })
 
   it('adds camera make when it is not already part of the model', () => {
