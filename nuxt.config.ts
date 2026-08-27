@@ -4,6 +4,9 @@ import { resolveGalleryPaths } from './shared/node/gallery-paths'
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   css: ['~/assets/css/main.css'],
+  devServer: {
+    port: 3123
+  },
   devtools: { enabled: true },
   app: {
     head: {

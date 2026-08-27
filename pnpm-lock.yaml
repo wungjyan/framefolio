@@ -17,6 +17,9 @@ importers:
       sharp:
         specifier: ^0.35.3
         version: 0.35.3(@types/node@26.3.0)
+      tsx:
+        specifier: ^4.23.12
+        version: 4.23.12
       vue:
         specifier: ^3.5.41
         version: 3.5.41(typescript@5.9.3)
@@ -30,9 +33,6 @@ importers:
       puppeteer:
         specifier: ^25.9.0
         version: 25.9.0
-      tsx:
-        specifier: ^4.23.12
-        version: 4.23.12
       typescript:
         specifier: ^5.9.3
         version: 5.9.3

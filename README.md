@@ -2,7 +2,7 @@
 
 Framefolio 是一个以照片展示为核心的极简摄影作品集。项目使用 Nuxt 4 构建，原始照片保存在运行时数据目录中，通过离线同步命令提取 EXIF，并生成适合网页加载的 WebP 缩略图和预览图。
 
-> 当前进度：工程基线、照片同步管线、只读照片 API、媒体路由、Gallery 三种响应式布局和 Photo Viewer 已经完成。Docker 部署仍在开发中。
+> 当前进度：可部署 MVP 已完成，包含照片同步管线、只读照片 API、媒体路由、响应式 Gallery、Photo Viewer，以及基于单一镜像的 Docker Compose 部署流程。
 
 ## 已实现能力
 
@@ -28,6 +28,12 @@ HEIC、HEIF、AVIF、GIF、相机 RAW 和多页图片暂不支持，可以在后
 
 ## 环境要求
 
+使用 Docker 部署仅需要：
+
+- Docker Engine 及 Docker Compose v2
+
+本地开发需要：
+
 - Node.js `^22.19.0`、`^24.11.0` 或 `>=26.0.0`
 - pnpm 11
 
@@ -37,6 +43,74 @@ HEIC、HEIF、AVIF、GIF、相机 RAW 和多页图片暂不支持，可以在后
 corepack enable
 pnpm install
 ```
+
+## Docker 部署
+
+复制环境变量示例，并确保运行时目录存在：
+
+```bash
+cp .env.example .env
+mkdir -p data/originals data/generated
+```
+
+Linux 主机建议将 `.env` 中的 `PUID`、`PGID` 改为部署用户的实际值，可分别通过 `id -u` 和 `id -g` 查询。这样同步容器生成的文件仍归当前宿主机用户所有。
+
+构建镜像并启动站点：
+
+```bash
+docker compose up -d --build
+```
+
+默认访问地址为 `http://localhost:3123`。如需修改宿主机端口，请调整 `.env` 中的 `FRAMEFOLIO_PORT`。
+
+`gallery` 服务以只读方式挂载 `./data`，只负责运行 Nuxt 和提供照片；`docker compose up -d` 不会启动同步服务。`sync` 服务复用完全相同的镜像，仅在显式执行时以可读写方式挂载数据目录。
+
+### 导入和更新照片
+
+将原图复制到 `data/originals/`，然后执行：
+
+```bash
+docker compose run --rm sync
+```
+
+新增、修改或删除原图后都使用同一条命令。同步会原子更新 `photos.json` 和生成图；完成后刷新网页即可，不需要重新构建镜像，也不需要重启 `gallery`。
+
+### 日常运维
+
+查看服务和健康状态：
+
+```bash
+docker compose ps
+```
+
+查看站点日志：
+
+```bash
+docker compose logs -f gallery
+```
+
+拉取基础镜像更新并重建应用：
+
+```bash
+docker compose build --pull
+docker compose up -d
+```
+
+停止容器：
+
+```bash
+docker compose down
+```
+
+`down`、重建容器和重建镜像都不会删除绑定挂载的 `./data`。备份时至少保留 `data/originals/`；如需快速恢复且不希望重新处理图片，可备份整个 `data/`。
+
+### Docker 故障排查
+
+- `sync` 报 `EACCES`：确认 `data` 目录允许 `.env` 中的 `PUID:PGID` 读写；Linux 主机通常应设置为 `id -u`、`id -g` 的结果。
+- 端口已被占用：修改 `.env` 中的 `FRAMEFOLIO_PORT`，然后重新执行 `docker compose up -d`。
+- `gallery` 显示 `unhealthy`：先运行 `docker compose logs gallery`；健康检查会请求容器内的 `/favicon.ico`，因此不依赖照片索引是否已经生成。
+- 页面没有新照片：确认同步命令以成功状态结束，再检查 `data/photos.json` 和 `data/generated/` 的修改时间。同步失败时命令会返回非零状态并列出具体文件。
+- 更换 CPU 架构或部署主机：在目标主机重新执行 `docker compose build --pull`，让 Sharp 使用与目标平台匹配的运行时依赖。
 
 ## 照片同步
 
@@ -71,19 +145,21 @@ data/
 NUXT_GALLERY_DATA_DIR=/absolute/path/to/data pnpm gallery:sync
 ```
 
+Docker 部署固定将宿主机的 `./data` 挂载到容器 `/app/data`，无需修改该变量。
+
 ## 本地开发
 
 ```bash
 pnpm dev
 ```
 
-默认地址为 `http://localhost:3000`。桌面端可以切换 Editorial 与 Justified，移动端自动使用单列布局。右上角图标可切换浅色 / 深色主题。点击任意照片可打开 Viewer；使用左右方向键切换照片，按 `Escape` 关闭。
+默认地址为 `http://localhost:3123`。桌面端可以切换 Editorial 与 Justified，移动端自动使用单列布局。右上角图标可切换浅色 / 深色主题。点击任意照片可打开 Viewer；使用左右方向键切换照片，按 `Escape` 关闭。
 
 同步完成并启动开发服务器后，可以访问：
 
 ```text
-http://localhost:3000/api/photos
-http://localhost:3000/media/<生成图片文件名>
+http://localhost:3123/api/photos
+http://localhost:3123/media/<生成图片文件名>
 ```
 
 媒体路由只允许读取 `data/generated` 中符合指纹命名规则的 WebP，不会公开原图。

@@ -1,0 +1,49 @@
+name: framefolio
+
+x-framefolio-image: &framefolio-image
+  image: ${FRAMEFOLIO_IMAGE:-framefolio:local}
+  build:
+    context: .
+
+x-framefolio-runtime: &framefolio-runtime
+  <<: *framefolio-image
+  init: true
+  user: "${PUID:-1000}:${PGID:-1000}"
+  environment:
+    NUXT_GALLERY_DATA_DIR: /app/data
+
+services:
+  gallery:
+    <<: *framefolio-runtime
+    restart: unless-stopped
+    ports:
+      - "${FRAMEFOLIO_PORT:-3123}:3123"
+    volumes:
+      - type: bind
+        source: ./data
+        target: /app/data
+        read_only: true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3123/favicon.ico').then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  sync:
+    <<: *framefolio-runtime
+    profiles:
+      - tools
+    command:
+      - node
+      - --import
+      - tsx
+      - scripts/gallery-sync.ts
+    volumes:
+      - type: bind
+        source: ./data
+        target: /app/data

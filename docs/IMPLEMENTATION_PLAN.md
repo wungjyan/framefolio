@@ -17,7 +17,7 @@ data/originals
 
 开发中优先保证数据同步可靠、运行时边界清晰和图片展示稳定，再完善排版与交互细节。
 
-当前已完成阶段 0–5，即工程基线、照片同步管线、运行时 API、媒体路由、应用视觉基线、Gallery 布局和 Photo Viewer；下一阶段为 Docker 部署与运维流程。MVP 范围外追加了浅色 / 深色双主题支持（见阶段 8），已实现。
+当前已完成阶段 0–6，即工程基线、照片同步管线、运行时 API、媒体路由、应用视觉基线、Gallery 布局、Photo Viewer，以及 Docker 部署与运维流程；下一阶段为端到端验收与收尾。MVP 范围外追加了浅色 / 深色双主题支持（见阶段 8），已实现。
 
 ## 2. MVP 边界
 
@@ -363,15 +363,15 @@ pnpm test
 
 **任务**
 
-- [ ] 使用多阶段 `Dockerfile` 构建 Nuxt Node 产物。
-- [ ] 确保运行镜像同时具备执行 `gallery:sync` 所需的 Sharp 运行能力。
-- [ ] Compose 中的 `gallery` 服务启动 Nuxt，以只读方式挂载 `data`。
-- [ ] Compose 中的 `sync` 服务复用同一镜像，以可读写方式挂载 `data`。
-- [ ] 使 `docker compose up -d` 只启动展示服务。
-- [ ] 使 `docker compose run --rm sync` 执行一次同步。
-- [ ] 通过 UID/GID 或明确的目录权限避免宿主机与容器生成物的权限冲突。
-- [ ] 增加 `.dockerignore`、`.env.example` 和容器健康检查。
-- [ ] 完善 README，补充 Docker 启动、容器内同步和部署故障排查。
+- [x] 使用多阶段 `Dockerfile` 构建 Nuxt Node 产物。
+- [x] 确保运行镜像同时具备执行 `gallery:sync` 所需的 Sharp 运行能力。
+- [x] Compose 中的 `gallery` 服务启动 Nuxt，以只读方式挂载 `data`。
+- [x] Compose 中的 `sync` 服务复用同一镜像，以可读写方式挂载 `data`。
+- [x] 使 `docker compose up -d` 只启动展示服务。
+- [x] 使 `docker compose run --rm sync` 执行一次同步。
+- [x] 通过 UID/GID 或明确的目录权限避免宿主机与容器生成物的权限冲突。
+- [x] 增加 `.dockerignore`、`.env.example` 和容器健康检查。
+- [x] 完善 README，补充 Docker 启动、容器内同步和部署故障排查。
 
 **标准运维流程**
 
