@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { GalleryPhoto, PhotosResponse } from '../../shared/types/photo'
+import PhotoViewer from '../components/viewer/PhotoViewer.vue'
 
 const {
   isMobile,
@@ -8,6 +9,7 @@ const {
   setLayout
 } = useGalleryLayout()
 const selectedPhotoId = ref<string>()
+const viewerTrigger = shallowRef<HTMLButtonElement>()
 const {
   data: photos,
   error,
@@ -17,8 +19,23 @@ const {
   default: () => []
 })
 
-function selectPhoto(photo: GalleryPhoto): void {
+function selectPhoto(photo: GalleryPhoto, trigger?: HTMLButtonElement): void {
+  if (trigger) {
+    viewerTrigger.value = trigger
+  }
+
   selectedPhotoId.value = photo.id
+}
+
+function selectViewerPhoto(photoId: string): void {
+  selectedPhotoId.value = photoId
+}
+
+async function closeViewer(): Promise<void> {
+  selectedPhotoId.value = undefined
+  await nextTick()
+  viewerTrigger.value?.focus()
+  viewerTrigger.value = undefined
 }
 </script>
 
@@ -121,6 +138,13 @@ function selectPhoto(photo: GalleryPhoto): void {
         @select="selectPhoto"
       />
     </main>
+
+    <PhotoViewer
+      :photos="photos"
+      :photo-id="selectedPhotoId"
+      @close="closeViewer"
+      @select="selectViewerPhoto"
+    />
   </div>
 </template>
 

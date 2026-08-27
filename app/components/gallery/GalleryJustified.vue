@@ -10,7 +10,7 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  select: [photo: GalleryPhoto]
+  select: [photo: GalleryPhoto, trigger: HTMLButtonElement]
 }>()
 
 const container = ref<HTMLElement>()
@@ -46,6 +46,10 @@ onBeforeUnmount(() => {
   window.cancelAnimationFrame(resizeFrame ?? 0)
   observer?.disconnect()
 })
+
+function selectPhoto(photo: GalleryPhoto, trigger: HTMLButtonElement): void {
+  emit('select', photo, trigger)
+}
 </script>
 
 <template>
@@ -69,7 +73,7 @@ onBeforeUnmount(() => {
           :photo="item.photo"
           :priority="item.sourceIndex === 0"
           :selected="selectedPhotoId === item.photo.id"
-          @select="emit('select', $event)"
+          @select="selectPhoto"
         />
       </article>
     </li>

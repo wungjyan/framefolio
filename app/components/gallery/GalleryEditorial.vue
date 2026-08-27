@@ -16,7 +16,7 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  select: [photo: GalleryPhoto]
+  select: [photo: GalleryPhoto, trigger: HTMLButtonElement]
 }>()
 
 const groups = computed(() => buildEditorialGroups(props.photos))
@@ -31,6 +31,10 @@ function usePreview(
 
   return pattern === 'feature'
     || (pattern === 'mixed-pair' && orientation !== 'portrait')
+}
+
+function selectPhoto(photo: GalleryPhoto, trigger: HTMLButtonElement): void {
+  emit('select', photo, trigger)
 }
 </script>
 
@@ -55,7 +59,7 @@ function usePreview(
           :priority="item.sourceIndex === 0"
           :selected="selectedPhotoId === item.photo.id"
           :variant="usePreview(group.pattern, item.orientation) ? 'preview' : 'thumbnail'"
-          @select="emit('select', $event)"
+          @select="selectPhoto"
         />
       </article>
     </li>

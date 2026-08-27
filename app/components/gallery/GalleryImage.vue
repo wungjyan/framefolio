@@ -13,13 +13,13 @@ const props = withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  select: [photo: GalleryPhoto]
+  select: [photo: GalleryPhoto, trigger: HTMLButtonElement]
 }>()
 
 const loadState = ref<'idle' | 'loaded' | 'error'>('idle')
 
-function selectPhoto(): void {
-  emit('select', props.photo)
+function selectPhoto(event: MouseEvent): void {
+  emit('select', props.photo, event.currentTarget as HTMLButtonElement)
 }
 </script>
 
@@ -29,6 +29,7 @@ function selectPhoto(): void {
     type="button"
     :aria-label="`打开照片 ${photo.filename}`"
     :aria-pressed="selected"
+    aria-haspopup="dialog"
     :data-state="loadState"
     :style="{ aspectRatio: `${photo.width} / ${photo.height}` }"
     @click="selectPhoto"

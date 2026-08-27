@@ -9,8 +9,12 @@ withDefaults(defineProps<{
 })
 
 const emit = defineEmits<{
-  select: [photo: GalleryPhoto]
+  select: [photo: GalleryPhoto, trigger: HTMLButtonElement]
 }>()
+
+function selectPhoto(photo: GalleryPhoto, trigger: HTMLButtonElement): void {
+  emit('select', photo, trigger)
+}
 </script>
 
 <template>
@@ -20,7 +24,7 @@ const emit = defineEmits<{
         :photo="photo"
         :priority="index === 0"
         :selected="selectedPhotoId === photo.id"
-        @select="emit('select', $event)"
+        @select="selectPhoto"
       />
     </li>
   </ol>
