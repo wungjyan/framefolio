@@ -15,7 +15,7 @@ const emit = defineEmits<{
 
 const container = ref<HTMLElement>()
 const containerWidth = ref(0)
-const gap = 10
+const gap = 14
 let observer: ResizeObserver | undefined
 let resizeFrame: number | undefined
 
@@ -53,7 +53,11 @@ function selectPhoto(photo: GalleryPhoto, trigger: HTMLButtonElement): void {
 </script>
 
 <template>
-  <ol ref="container" class="justified-gallery">
+  <ol
+    ref="container"
+    class="justified-gallery"
+    :style="{ '--justified-gap': `${gap}px` }"
+  >
     <li
       v-for="row in rows"
       :key="row.id"
@@ -87,13 +91,13 @@ function selectPhoto(photo: GalleryPhoto, trigger: HTMLButtonElement): void {
   padding: 0;
   margin: 0;
   list-style: none;
-  gap: 0.625rem;
+  gap: var(--justified-gap);
 }
 
 .justified-row {
   display: flex;
   align-items: flex-start;
-  gap: 0.625rem;
+  gap: var(--justified-gap);
 }
 
 .justified-item {

@@ -72,7 +72,7 @@ function selectPhoto(photo: GalleryPhoto, trigger: HTMLButtonElement): void {
   padding: 0;
   margin: 0;
   list-style: none;
-  gap: clamp(5rem, 11vw, 11rem);
+  gap: clamp(4rem, 7vw, 7rem);
 }
 
 .editorial-group {
@@ -98,22 +98,31 @@ function selectPhoto(photo: GalleryPhoto, trigger: HTMLButtonElement): void {
   grid-column: 4 / 10;
 }
 
-.editorial-group[data-pattern="mixed-pair"] .editorial-item[data-orientation="portrait"] {
-  grid-column: 9 / 13;
-  margin-top: clamp(4rem, 10vw, 10rem);
+.editorial-group[data-pattern="mixed-pair"] .editorial-item[data-position="0"][data-orientation="portrait"] {
+  grid-column: 1 / 5;
 }
 
-.editorial-group[data-pattern="mixed-pair"] .editorial-item:not([data-orientation="portrait"]) {
-  grid-column: 1 / 9;
+.editorial-group[data-pattern="mixed-pair"] .editorial-item[data-position="0"]:not([data-orientation="portrait"]) {
+  grid-column: 1 / 8;
+}
+
+.editorial-group[data-pattern="mixed-pair"] .editorial-item[data-position="1"][data-orientation="portrait"] {
+  grid-column: 9 / 13;
+  margin-top: clamp(2rem, 3.5vw, 4.5rem);
+}
+
+.editorial-group[data-pattern="mixed-pair"] .editorial-item[data-position="1"]:not([data-orientation="portrait"]) {
+  grid-column: 8 / 13;
+  margin-top: clamp(1.5rem, 2.5vw, 3.5rem);
 }
 
 .editorial-group[data-pattern="portrait-pair"] .editorial-item[data-position="0"] {
-  grid-column: 2 / 7;
+  grid-column: 1 / 6;
 }
 
 .editorial-group[data-pattern="portrait-pair"] .editorial-item[data-position="1"] {
   grid-column: 8 / 13;
-  margin-top: clamp(5rem, 12vw, 12rem);
+  margin-top: clamp(2.25rem, 4.5vw, 5.5rem);
 }
 
 .editorial-group[data-pattern="staggered-pair"] .editorial-item[data-position="0"] {
@@ -122,7 +131,7 @@ function selectPhoto(photo: GalleryPhoto, trigger: HTMLButtonElement): void {
 
 .editorial-group[data-pattern="staggered-pair"] .editorial-item[data-position="1"] {
   grid-column: 8 / 13;
-  margin-top: clamp(4rem, 9vw, 9rem);
+  margin-top: clamp(1.5rem, 3vw, 3.5rem);
 }
 
 .editorial-group[data-pattern="single-aside"][data-side="left"] .editorial-item {

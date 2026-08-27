@@ -68,7 +68,7 @@ svg {
 
 @media (min-width: 48rem) {
   :root {
-    --gallery-gutter: 2rem;
+    --gallery-gutter: clamp(2rem, 3vw, 3rem);
     --gallery-header-height: 7rem;
   }
 }
