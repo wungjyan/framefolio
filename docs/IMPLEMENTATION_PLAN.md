@@ -128,6 +128,7 @@ interface PhotoSourceState {
 app/
 ├── assets/css/main.css
 ├── components/
+│   ├── gallery/GalleryHeader.vue
 │   ├── gallery/GalleryEditorial.vue
 │   ├── gallery/GalleryJustified.vue
 │   ├── gallery/GalleryMobile.vue
@@ -135,7 +136,10 @@ app/
 │   └── viewer/PhotoViewer.vue
 ├── composables/useGalleryLayout.ts
 ├── pages/index.vue
-├── utils/gallery-layout.ts
+├── utils/
+│   ├── gallery-layout.ts
+│   ├── header-scroll.ts
+│   └── photo-viewer.ts
 └── app.vue
 server/
 ├── api/photos.get.ts
@@ -159,7 +163,9 @@ tests/
     ├── gallery-baseline.test.ts
     ├── gallery-layout.test.ts
     ├── gallery-runtime.test.ts
-    └── gallery-sync.test.ts
+    ├── gallery-sync.test.ts
+    ├── header-scroll.test.ts
+    └── photo-viewer.test.ts
 Dockerfile
 docker-compose.yml
 .env.example
@@ -307,11 +313,14 @@ pnpm test
 - [x] 保留主要内容边距和舒适的纵向间距。
 - [x] 图片占据主要可视宽度，保持原始比例。
 
-#### 4.4 布局切换
+#### 4.4 Header 与布局切换
 
 - [x] 默认使用 `editorial`。
-- [x] 仅在桌面端显示两个极简图标控件。
-- [x] 控件具有可识别的焦点态、可访问名称和简短 Tooltip。
+- [x] 仅在桌面端显示一个目标布局图标，点击后在两种布局之间切换。
+- [x] 控件具有可识别的焦点态、动态可访问名称和简短 Tooltip。
+- [x] Header 在顶部保持显示，持续向下滚动后隐藏，向上滚动时恢复。
+- [x] 使用方向累计阈值避免轻微滚动抖动，隐藏后禁用鼠标和键盘交互。
+- [x] 布局切换和 Viewer 开关不会造成 Header 显隐状态错乱。
 - [x] 在本地保存用户最后一次选择；储存不可用时回退到 Editorial。
 
 **验收标准**
@@ -319,6 +328,7 @@ pnpm test
 - Editorial 不呈现传统瀑布流效果，刷新后排版保持一致，双图组按时间从左到右排列。
 - Justified 的同行图片等高、无裁剪，容器缩放后能重新排列。
 - 移动端始终为单列，且不显示布局切换。
+- 桌面端 Header 的滚动显隐稳定，隐藏时不会留下不可见的交互区域。
 - 仅当照片作为较大 Editorial 项或 Viewer 内容时请求 preview。
 
 ### 阶段 5：Photo Viewer
