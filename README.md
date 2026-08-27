@@ -55,6 +55,8 @@ mkdir -p data/originals data/generated
 
 Linux 主机建议将 `.env` 中的 `PUID`、`PGID` 改为部署用户的实际值，可分别通过 `id -u` 和 `id -g` 查询。这样同步容器生成的文件仍归当前宿主机用户所有。
 
+Compose 默认通过 `NPM_REGISTRY=https://registry.npmmirror.com` 下载 pnpm 和项目依赖，适用于无法稳定访问 npm 官方源的服务器。如果服务器可以直接访问官方源，可将其改为 `https://registry.npmjs.org`。
+
 构建镜像并启动站点：
 
 ```bash
@@ -107,6 +109,7 @@ docker compose down
 ### Docker 故障排查
 
 - `sync` 报 `EACCES`：确认 `data` 目录允许 `.env` 中的 `PUID:PGID` 读写；Linux 主机通常应设置为 `id -u`、`id -g` 的结果。
+- 构建时无法下载 pnpm 或依赖：检查 `.env` 中的 `NPM_REGISTRY` 是否能从服务器访问，然后使用 `docker compose build --no-cache` 重试。
 - 端口已被占用：修改 `.env` 中的 `FRAMEFOLIO_PORT`，然后重新执行 `docker compose up -d`。
 - `gallery` 显示 `unhealthy`：先运行 `docker compose logs gallery`；健康检查会请求容器内的 `/favicon.ico`，因此不依赖照片索引是否已经生成。
 - 页面没有新照片：确认同步命令以成功状态结束，再检查 `data/photos.json` 和 `data/generated/` 的修改时间。同步失败时命令会返回非零状态并列出具体文件。

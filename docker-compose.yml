@@ -4,6 +4,8 @@ x-framefolio-image: &framefolio-image
   image: ${FRAMEFOLIO_IMAGE:-framefolio:local}
   build:
     context: .
+    args:
+      NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
 
 x-framefolio-runtime: &framefolio-runtime
   <<: *framefolio-image

@@ -1,14 +1,19 @@
 # syntax=docker/dockerfile:1.7
 
 ARG NODE_IMAGE=node:24-bookworm-slim
+ARG NPM_REGISTRY=https://registry.npmjs.org
 
 FROM ${NODE_IMAGE} AS base
 
+ARG NPM_REGISTRY
+
+ENV COREPACK_NPM_REGISTRY=$NPM_REGISTRY
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 
 RUN corepack enable \
-  && corepack prepare pnpm@11.0.8 --activate
+  && corepack prepare pnpm@11.0.8 --activate \
+  && pnpm config set registry "$NPM_REGISTRY"
 
 WORKDIR /app
 
