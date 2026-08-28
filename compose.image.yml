@@ -1,0 +1,27 @@
+name: framefolio
+
+services:
+  gallery:
+    image: ${FRAMEFOLIO_IMAGE:-wungjyan/framefolio:latest}
+    init: true
+    user: "${PUID:-1000}:${PGID:-1000}"
+    restart: unless-stopped
+    ports:
+      - "${FRAMEFOLIO_PORT:-3123}:3123"
+    volumes:
+      - ./data:/app/data:ro
+
+  sync:
+    image: ${FRAMEFOLIO_IMAGE:-wungjyan/framefolio:latest}
+    init: true
+    user: "${PUID:-1000}:${PGID:-1000}"
+    profiles:
+      - tools
+    command:
+      - node
+      - --import
+      - tsx
+      - scripts/gallery-sync.ts
+    volumes:
+      - ./data:/app/data
+
