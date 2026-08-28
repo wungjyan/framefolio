@@ -21,6 +21,8 @@ const currentIndex = computed(() => (
     : -1
 ))
 const currentPhoto = computed(() => props.photos[currentIndex.value])
+const image = ref<HTMLImageElement>()
+const isImageLoading = ref(false)
 const metadata = computed(() => (
   currentPhoto.value ? buildPhotoMetadata(currentPhoto.value) : {}
 ))
@@ -39,6 +41,18 @@ onMounted(() => {
 watch([() => props.photoId, currentPhoto], () => {
   syncDialog()
 })
+
+watch(currentPhoto, (photo) => {
+  isImageLoading.value = Boolean(photo)
+
+  if (photo) {
+    nextTick(() => {
+      if (currentPhoto.value?.id === photo.id && image.value?.complete) {
+        completeImageLoading()
+      }
+    })
+  }
+}, { flush: 'post' })
 
 watch(currentIndex, () => {
   preloadAdjacentPhotos()
@@ -105,6 +119,10 @@ function showNext(): void {
 
 function focusCloseButton(): void {
   dialog.value?.querySelector<HTMLElement>('[data-viewer-close]')?.focus()
+}
+
+function completeImageLoading(): void {
+  isImageLoading.value = false
 }
 
 function constrainFocus(event: KeyboardEvent): void {
@@ -194,14 +212,23 @@ function unlockBackgroundScroll(): void {
       <div class="photo-viewer__stage">
         <div class="photo-viewer__media">
           <img
+            ref="image"
             :key="currentPhoto.id"
             :src="currentPhoto.preview"
             :alt="currentPhoto.filename"
             :width="currentPhoto.width"
             :height="currentPhoto.height"
             decoding="async"
+            @load="completeImageLoading"
+            @error="completeImageLoading"
           >
         </div>
+
+        <span
+          v-if="isImageLoading"
+          class="photo-viewer__loading"
+          aria-hidden="true"
+        />
 
         <button
           class="photo-viewer__nav photo-viewer__nav--previous"
@@ -333,9 +360,25 @@ function unlockBackgroundScroll(): void {
   object-fit: contain;
 }
 
+.photo-viewer__loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  width: 1.25rem;
+  height: 1.25rem;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--gallery-ink) 18%, transparent);
+  border-top-color: var(--gallery-ink);
+  border-radius: 50%;
+  animation: photo-viewer-spin 700ms linear infinite;
+  transform: translate(-50%, -50%);
+}
+
 .photo-viewer__nav {
   position: absolute;
   top: 50%;
+  z-index: 2;
   transform: translateY(-50%);
 }
 
@@ -364,6 +407,18 @@ function unlockBackgroundScroll(): void {
 .photo-viewer__metadata time {
   display: block;
   margin-top: 0.45rem;
+}
+
+@keyframes photo-viewer-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .photo-viewer__loading {
+    animation: none;
+  }
 }
 
 @media (max-width: 47.999rem) {

@@ -73,6 +73,17 @@ describe('photo viewer media sizing', () => {
       /\.photo-viewer__media img \{[\s\S]*?width: 100%;[\s\S]*?height: 100%;[\s\S]*?object-fit: contain;/
     )
   })
+
+  it('shows a loader while the current large image is loading', async () => {
+    const source = await readFile(
+      'app/components/viewer/PhotoViewer.vue',
+      'utf8'
+    )
+
+    expect(source).toContain('const isImageLoading = ref(false)')
+    expect(source).toMatch(/v-if="isImageLoading"[\s\S]*?photo-viewer__loading/)
+    expect(source).toMatch(/@load="completeImageLoading"[\s\S]*?@error="completeImageLoading"/)
+  })
 })
 
 function createPhoto(overrides: Partial<GalleryPhoto> = {}): GalleryPhoto {
