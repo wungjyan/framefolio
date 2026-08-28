@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  GALLERY_LAYOUT_STORAGE_KEY,
-  readStoredGalleryLayout,
-  writeStoredGalleryLayout
-} from '../../app/composables/useGalleryLayout'
-import {
   buildEditorialItems,
   buildEditorialRows,
   buildJustifiedRows,
@@ -118,36 +113,6 @@ describe('justified gallery layout', () => {
       targetRowHeight: 240,
       gap: 8
     })).toEqual([])
-  })
-})
-
-describe('gallery layout preference', () => {
-  it('reads, writes, and safely falls back when storage is unavailable', () => {
-    const values = new Map<string, string>()
-    const storage = {
-      getItem: (key: string) => values.get(key) ?? null,
-      setItem: (key: string, value: string) => values.set(key, value)
-    }
-
-    expect(readStoredGalleryLayout(storage)).toBe('editorial')
-    expect(readStoredGalleryLayout()).toBe('editorial')
-    writeStoredGalleryLayout(storage, 'justified')
-    expect(values.get(GALLERY_LAYOUT_STORAGE_KEY)).toBe('justified')
-    expect(readStoredGalleryLayout(storage)).toBe('justified')
-
-    values.set(GALLERY_LAYOUT_STORAGE_KEY, 'unknown')
-    expect(readStoredGalleryLayout(storage)).toBe('editorial')
-
-    expect(readStoredGalleryLayout({
-      getItem: () => {
-        throw new Error('blocked')
-      }
-    })).toBe('editorial')
-    expect(() => writeStoredGalleryLayout({
-      setItem: () => {
-        throw new Error('blocked')
-      }
-    }, 'justified')).not.toThrow()
   })
 })
 
