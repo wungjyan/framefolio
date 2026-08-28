@@ -31,11 +31,7 @@ function formatFocalLength(
   const physical = formatNumber(focalLength, 'mm')
   const equivalent = formatNumber(focalLength35mm, 'mm')
 
-  if (physical && equivalent) {
-    return `${physical}（等效 ${equivalent}）`
-  }
-
-  return physical ?? (equivalent ? `等效 ${equivalent}` : undefined)
+  return equivalent ?? physical
 }
 
 function formatCamera(make?: string, model?: string): string | undefined {
