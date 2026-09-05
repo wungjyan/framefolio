@@ -1,4 +1,5 @@
 import { program } from '../program'
+import { buildAndCopyOutput } from '../lib/artifacts'
 import { runGallerySync } from '../lib/gallery'
 import {
   hasProductionEntry,
@@ -28,7 +29,7 @@ program
     }
 
     if (!hasProductionEntry()) {
-      const buildExitCode = await runCommand('pnpm', ['exec', 'nuxt', 'build'])
+      const buildExitCode = await buildAndCopyOutput()
 
       if (buildExitCode !== 0) {
         process.exitCode = buildExitCode

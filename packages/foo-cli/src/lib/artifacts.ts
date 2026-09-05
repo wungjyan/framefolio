@@ -5,7 +5,8 @@ import { outro } from '@clack/prompts'
 
 import {
   packagedProductionOutput,
-  repositoryProductionOutput
+  repositoryProductionOutput,
+  runCommand
 } from './runtime'
 
 /**
@@ -22,6 +23,18 @@ export function copyBuildOutputToPackage() {
   cpSync(repositoryProductionOutput, packagedProductionOutput, { recursive: true })
 
   return 0
+}
+
+/**
+ * Build the main project from its repository root and copy the fresh output
+ * into the CLI package. Used when the packaged `.output` is missing.
+ */
+export async function buildAndCopyOutput() {
+  const buildExitCode = await runCommand('pnpm', ['exec', 'nuxt', 'build'])
+
+  if (buildExitCode !== 0) return buildExitCode
+
+  return copyBuildOutputToPackage()
 }
 
 export function reportBuildResult(prerender: boolean) {
