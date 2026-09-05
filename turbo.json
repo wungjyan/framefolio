@@ -1,0 +1,23 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "docs:build": {
+      "outputs": [".vitepress/dist/**"]
+    },
+    "docs:dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "docs:preview": {
+      "cache": false,
+      "persistent": true
+    },
+    "start:app": {
+      "cache": false,
+      "persistent": true,
+      "passThroughEnv": ["FOO_CLI_PREVIEW"]
+    },
+    "typecheck": {}
+  }
+}

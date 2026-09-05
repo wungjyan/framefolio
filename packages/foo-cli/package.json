@@ -1,0 +1,39 @@
+{
+  "name": "foo-cli",
+  "version": "0.1.0",
+  "description": "Interactive Framefolio project manager.",
+  "private": false,
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "exports": "./dist/index.mjs",
+  "bin": {
+    "foo-cli": "./bin/foo.ts"
+  },
+  "files": [
+    "bin/foo.ts",
+    "dist/**",
+    "scripts/start-app.ts",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "start:app": "tsx scripts/start-app.ts",
+    "build:cli": "tsdown",
+    "prepare": "tsdown",
+    "prepack": "pnpm run build:cli"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "commander": "^14.0.0",
+    "tsx": "^4.23.12"
+  },
+  "devDependencies": {
+    "@types/node": "^26.3.0",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.9.3"
+  }
+}

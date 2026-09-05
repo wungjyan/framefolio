@@ -42,15 +42,9 @@ volumes:
 
 ---
 
-## 2. 实现 gallery:sync
+## 2. 实现图库同步
 
-提供：
-
-```bash
-pnpm gallery:sync
-```
-
-扫描 `data/originals`，自动完成：
+图库同步由 `pnpm start` 的站点启动流程询问执行，`foo-cli web` 会自动执行。内部同步脚本扫描 `data/originals`，完成：
 
 1. 使用 exifr 读取 EXIF
 2. 使用 Sharp 获取宽高

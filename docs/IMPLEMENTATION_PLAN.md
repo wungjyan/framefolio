@@ -226,11 +226,11 @@ docker-compose.yml
 **验收标准**
 
 ```bash
-pnpm gallery:sync
+pnpm exec tsx scripts/gallery-sync.ts
 pnpm test
 ```
 
-两个命令均能在本地环境独立运行，测试覆盖增、改、跳过和删除的核心路径。
+内部同步脚本和测试均能在本地环境独立运行，测试覆盖增、改、跳过和删除的核心路径；用户启动时通过 `pnpm start` 或 `foo-cli web` 触发同步。
 
 ### 阶段 2：运行时 API 与媒体路由
 
@@ -488,7 +488,7 @@ pnpm build
 
 当以下条件全部满足时，MVP 视为完成：
 
-- [x] `pnpm gallery:sync` 支持首次、增量、更新和删除同步。
+- [x] 启动站点时支持图库首次、增量、更新和删除同步。
 - [x] 同步失败不会损坏上一份可用索引。
 - [x] 网站运行时只读取 `photos.json` 和 `generated`。
 - [x] 原图和 GPS 元数据没有公开访问路径。

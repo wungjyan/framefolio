@@ -9,6 +9,13 @@ coverage
 *.tsbuildinfo
 .eslintcache
 
+# Build tooling caches
+.turbo
+
+# VitePress generated cache and build output
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+
 # Node dependencies
 node_modules
 
