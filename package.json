@@ -12,7 +12,7 @@
     "build": "pnpm exec foo-cli build",
     "test": "pnpm exec foo-cli test",
     "typecheck": "pnpm exec foo-cli typecheck",
-    "postinstall": "pnpm --filter foo-cli run build:cli && pnpm exec foo-cli prepare"
+    "postinstall": "pnpm --filter @wungjyan/foo-cli run build:cli && pnpm exec foo-cli prepare"
   },
   "dependencies": {
     "exifr": "^7.1.3",
@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^26.3.0",
-    "foo-cli": "workspace:*",
+    "@wungjyan/foo-cli": "workspace:*",
     "puppeteer": "^25.9.0",
     "turbo": "^2.10.12",
     "typescript": "^5.9.3",

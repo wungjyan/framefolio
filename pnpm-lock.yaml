@@ -30,7 +30,7 @@ importers:
       '@types/node':
         specifier: ^26.3.0
         version: 26.3.0
-      foo-cli:
+      '@wungjyan/foo-cli':
         specifier: workspace:*
         version: link:packages/foo-cli
       puppeteer:

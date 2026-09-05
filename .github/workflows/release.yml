@@ -50,7 +50,7 @@ jobs:
           pnpm test
 
       - name: Build foo-cli
-        run: pnpm --filter foo-cli run build:cli
+        run: pnpm --filter @wungjyan/foo-cli run build:cli
 
       - name: Publish foo-cli to npm
         run: npm publish ./packages/foo-cli --access public --provenance

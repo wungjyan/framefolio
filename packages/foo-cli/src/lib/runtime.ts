@@ -3,8 +3,27 @@ import { existsSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export const repositoryRoot = findRepositoryRoot(dirname(fileURLToPath(import.meta.url)))
-export const productionEntry = resolve(repositoryRoot, '.output/server/index.mjs')
+/** Directory that contains this CLI package (source tree or installed node_modules). */
+export const packageRoot = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  // Bundled entry lives at <packageRoot>/dist; source entry at <packageRoot>/src/lib.
+  // Both are exactly one level below the package root.
+  '..'
+)
+/** Repository root that hosts the Nuxt application (only present when run from source). */
+export const repositoryRoot = findRepositoryRoot(packageRoot)
+
+/**
+ * Production output directory owned by the CLI package itself. The main project
+ * build copies its `.output` here so the published package can serve the web
+ * command without depending on the repository checkout.
+ */
+export const packagedProductionOutput = resolve(packageRoot, '.output')
+
+/** Legacy fallback: the repository-root build output. */
+export const repositoryProductionOutput = resolve(repositoryRoot, '.output')
+
+export const productionEntry = resolve(packagedProductionOutput, 'server/index.mjs')
 
 export function parsePort(value: string) {
   const port = Number(value)
@@ -23,11 +42,12 @@ export function hasProductionEntry() {
 export function runCommand(
   command: string,
   args: string[],
-  environment: NodeJS.ProcessEnv = {}
+  environment: NodeJS.ProcessEnv = {},
+  cwd: string = repositoryRoot
 ) {
   return new Promise<number>((resolveExit) => {
     const child = spawn(command, args, {
-      cwd: repositoryRoot,
+      cwd,
       env: { ...process.env, ...environment },
       stdio: 'inherit'
     })

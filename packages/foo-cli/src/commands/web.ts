@@ -3,6 +3,7 @@ import { runGallerySync } from '../lib/gallery'
 import {
   hasProductionEntry,
   parsePort,
+  packageRoot,
   productionEntry,
   runCommand
 } from '../lib/runtime'
@@ -42,7 +43,8 @@ program
         NODE_ENV: 'production',
         NITRO_HOST: options.host,
         NITRO_PORT: String(port)
-      }
+      },
+      packageRoot
     )
 
     if (exitCode !== 0) process.exitCode = exitCode

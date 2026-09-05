@@ -1,5 +1,6 @@
 import { outro } from '@clack/prompts'
 
+import { copyBuildOutputToPackage, reportBuildResult } from './artifacts'
 import { runGallerySync } from './gallery'
 import {
   chooseStartTargets,
@@ -81,7 +82,6 @@ export async function runManagedAction(
     return
   }
 
-  outro(prerender
-    ? 'Framefolio 构建完成，已生成预渲染页面。'
-    : 'Framefolio 构建完成。')
+  copyBuildOutputToPackage()
+  reportBuildResult(prerender)
 }
