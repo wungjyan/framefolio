@@ -1,0 +1,157 @@
+:root {
+  --vp-c-brand-1: #9cae32;
+  --vp-c-brand-2: #b8c94a;
+  --vp-c-brand-3: #d9e35f;
+  --vp-c-brand-soft: rgba(217, 227, 95, 0.14);
+  --vp-c-bg: #f1f3ed;
+  --vp-c-bg-alt: #e8ece4;
+  --vp-c-bg-elv: #f7f8f3;
+  --vp-c-text-1: #101419;
+  --vp-c-text-2: #42505a;
+  --vp-c-divider: #cbd4cb;
+  --vp-font-family-base: 'Avenir Next', 'IBM Plex Sans', 'Noto Sans', sans-serif;
+  --vp-font-family-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+}
+
+.dark {
+  --vp-c-bg: #101419;
+  --vp-c-bg-alt: #151d23;
+  --vp-c-bg-elv: #1b242b;
+  --vp-c-text-1: #eef2e8;
+  --vp-c-text-2: #b5c1ba;
+  --vp-c-divider: #344149;
+}
+
+.VPNavBar {
+  background: color-mix(in srgb, var(--vp-c-bg) 88%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.VPNavBarTitle .title {
+  color: var(--vp-c-text-1);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.VPHero .name {
+  max-width: 11ch;
+  color: var(--vp-c-text-1);
+  font-size: clamp(3.5rem, 10vw, 7.8rem);
+  font-weight: 760;
+  letter-spacing: -0.085em;
+  line-height: 0.9;
+}
+
+.VPHero .text {
+  max-width: 18ch;
+  color: var(--vp-c-brand-1);
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  letter-spacing: -0.04em;
+}
+
+.VPHero .tagline {
+  max-width: 38rem;
+  color: var(--vp-c-text-2);
+}
+
+.VPButton.brand {
+  border-radius: 4px;
+  color: #101419;
+  background: var(--vp-c-brand-3);
+}
+
+.vp-doc h2 {
+  border-top: 1px solid var(--vp-c-divider);
+  padding-top: 1.4rem;
+  letter-spacing: -0.035em;
+}
+
+.vp-doc .md-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.vp-doc .md-card {
+  display: block;
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  background: var(--vp-c-bg-elv);
+}
+
+.vp-doc .md-card-title {
+  margin: 0 0 0.75rem;
+  color: var(--vp-c-text-1);
+  font-size: 1.05rem;
+}
+
+.vp-doc .md-card-content .mermaid {
+  margin: 0.75rem -0.5rem 0;
+  overflow-x: auto;
+  min-height: 220px;
+}
+
+.vp-doc .md-card-content .mermaid > svg {
+  display: block;
+  margin: 0 auto;
+}
+
+.vp-doc .mermaid svg,
+.vp-doc [class*='mermaid'] svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/*
+ * Mermaid re-renders asynchronously when the theme toggles. While the new SVG
+ * is being generated the container collapses to zero height, which makes the
+ * surrounding grid cards jump. Reserving space with an aspect-ratio placeholder
+ * keeps the layout stable during the swap.
+ */
+.vp-doc .mermaid,
+.vp-doc [class*='mermaid'] {
+  position: relative;
+}
+
+.vp-doc .mermaid:empty,
+.vp-doc [class*='mermaid']:empty {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+}
+
+.vp-doc .cards {
+  gap: 1rem;
+}
+
+.vp-doc .card {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 6px;
+  background: var(--vp-c-bg-elv);
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.vp-doc .card:hover {
+  border-color: var(--vp-c-brand-1);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 640px) {
+  .VPHero .name {
+    font-size: 4rem;
+  }
+
+  .vp-doc .md-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vp-doc .card {
+    transition: none;
+  }
+}

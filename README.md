@@ -15,7 +15,7 @@ Framefolio is a minimalist, self-hosted photo portfolio. Place photos in the dat
 
 JPEG, PNG, TIFF, and WebP originals are supported. HEIC, HEIF, AVIF, GIF, and camera RAW files are not currently supported.
 
-The default address is `http://localhost:3123`.
+The default address is `http://127.0.0.1:3123` when started with `pnpm exec foo-cli web`.
 
 ## Deployment
 
@@ -63,8 +63,7 @@ pnpm install
 Place photos in `data/originals/`, then sync and start the development server:
 
 ```bash
-pnpm gallery:sync
-pnpm dev
+pnpm start
 ```
 
 For a production process:
@@ -100,10 +99,11 @@ Store original photos in:
 data/originals/
 ```
 
-When running directly from source:
+When running directly from source, `pnpm start` asks whether to run the gallery sync before starting the site. The production server performs the sync automatically:
 
 ```bash
-pnpm gallery:sync
+pnpm start
+pnpm exec foo-cli web
 ```
 
 When using a locally built image:
@@ -163,3 +163,12 @@ NPM_REGISTRY=https://registry.npmjs.org \
 ```
 
 Set `PUBLISH_LATEST=false` to publish only the specified version tag.
+
+## Documentation
+
+The `docs/` workspace contains the VitePress project documentation, including architecture diagrams, dependency/interface graphs, Mermaid sequence diagrams, and the SDD development guide:
+
+```bash
+pnpm exec turbo run docs:dev
+pnpm exec turbo run docs:build
+```

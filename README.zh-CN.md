@@ -15,7 +15,7 @@ Framefolio 是一个自托管的极简摄影作品集。将照片放入数据目
 
 支持 JPEG、PNG、TIFF 和 WebP 原图。HEIC、HEIF、AVIF、GIF 和相机 RAW 暂不支持。
 
-默认访问地址：`http://localhost:3123`。
+使用 `pnpm exec foo-cli web` 启动时，默认访问地址为：`http://127.0.0.1:3123`。
 
 ## 部署方式
 
@@ -63,8 +63,7 @@ pnpm install
 将照片放入 `data/originals/`，然后同步并启动：
 
 ```bash
-pnpm gallery:sync
-pnpm dev
+pnpm start
 ```
 
 如需以生产模式运行：
@@ -100,10 +99,11 @@ docker compose up -d gallery
 data/originals/
 ```
 
-从源码直接运行时执行：
+从源码直接运行时，`pnpm start` 会询问是否在启动站点前执行图库同步。生产服务器会自动执行同步：
 
 ```bash
-pnpm gallery:sync
+pnpm start
+pnpm exec foo-cli web
 ```
 
 使用本地构建镜像时执行：
@@ -163,3 +163,12 @@ NPM_REGISTRY=https://registry.npmjs.org \
 ```
 
 设置 `PUBLISH_LATEST=false` 可只推送指定版本标签。
+
+## 项目文档
+
+`docs/` 工作空间维护 VitePress 项目文档，包含架构图、依赖/接口图、Mermaid 时序图和 SDD 开发指南：
+
+```bash
+pnpm exec turbo run docs:dev
+pnpm exec turbo run docs:build
+```
