@@ -48,13 +48,6 @@ ENV NITRO_HOST=0.0.0.0
 ENV NITRO_PORT=3123
 ENV NUXT_GALLERY_DATA_DIR=/app/data
 
-# Create the full runtime layout so a fresh named volume works without the app
-# needing to create directories. With a bind mount these are shadowed by the
-# host directory, where the app creates them on demand instead.
-RUN mkdir -p /app/data/originals /app/data/generated /app/data/incoming \
-    /app/data/.trash /app/data/.state \
-  && chown -R node:node /app
-
 WORKDIR /app
 
 COPY --from=production-dependencies /app/node_modules ./node_modules
@@ -62,6 +55,22 @@ COPY --from=build /app/.output ./.output
 COPY package.json ./
 COPY scripts ./scripts
 COPY shared ./shared
+
+# Create the full runtime layout so a fresh named volume works without the app
+# needing to create directories, and take ownership of everything above. The
+# chown must come AFTER the COPY lines: applying it earlier leaves the copied
+# files owned by root, and the container runs as `node`.
+RUN mkdir -p /app/data/originals /app/data/generated /app/data/incoming \
+      /app/data/.trash /app/data/.state \
+  && chown -R node:node /app
+
+# Fail the build if the running user cannot READ the sync script and its
+# imports. Files with restrictive permissions on the build host (0600, e.g. from
+# a local umask) would otherwise surface only as an EACCES inside the spawned
+# sync child process at the first "Sync now", not at build time.
+RUN su node -c 'test -r scripts/gallery-sync.ts' \
+  && su node -c 'test -r shared/node/gallery-lock.ts' \
+  && su node -c 'test -r .output/server/index.mjs'
 
 USER node
 
