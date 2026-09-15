@@ -1,34 +1,49 @@
 import { join } from 'node:path'
 
 import { GALLERY_INDEX_FILENAME } from '../../shared/constants/gallery'
+import { resolveGalleryPaths } from '../../shared/node/gallery-paths'
+import {
+  resolveEffectiveSource,
+  resolveStorageConfig
+} from '../../shared/node/storage-config'
+import { readStorageState } from '../../shared/node/storage-state'
 import {
   GalleryIndexError,
   readPublicGalleryPhotos
 } from '../utils/gallery-index'
-import {
-  resolveEffectiveSource,
-  resolveStorageConfig
-} from '../utils/storage-config'
 
 /**
  * Public photo list.
  *
- * The URL source is resolved server-side from configuration, so switching
- * between local media and object storage needs no frontend change. A missing or
- * incompatible index is surfaced as a 500 rather than an empty list: an empty
- * gallery would look like "all photos were deleted".
+ * The URL source is resolved server-side, so switching between local media and
+ * object storage needs no frontend change. A runtime selection written by the
+ * admin UI takes precedence over the environment, so switching takes effect on
+ * the next request without a container restart.
+ *
+ * A missing or incompatible index is surfaced as a 500 rather than an empty
+ * list: an empty gallery would look like "all photos were deleted".
  */
 export default defineEventHandler(async event => {
   const config = useRuntimeConfig(event)
-  const indexPath = join(config.galleryDataDir, GALLERY_INDEX_FILENAME)
+  const paths = resolveGalleryPaths({ dataDirectory: config.galleryDataDir })
   const storage = resolveStorageConfig()
 
+  // An explicit choice in the admin UI wins over the environment default.
+  const persisted = await readStorageState(paths.storageState)
+  const requestedSource = persisted?.source ?? storage.source
+
   try {
-    return await readPublicGalleryPhotos(indexPath, {
-      source: resolveEffectiveSource(storage),
-      publicBaseUrl: storage.publicBaseUrl,
-      prefix: storage.prefix
-    })
+    return await readPublicGalleryPhotos(
+      join(paths.data, GALLERY_INDEX_FILENAME),
+      {
+        source: resolveEffectiveSource({
+          ...storage,
+          source: requestedSource
+        }),
+        publicBaseUrl: storage.publicBaseUrl,
+        prefix: storage.prefix
+      }
+    )
   } catch (error: unknown) {
     if (error instanceof GalleryIndexError) {
       console.error(error)

@@ -5,9 +5,15 @@ import {
   resolveGalleryPaths,
   type GalleryPaths
 } from '../shared/node/gallery-paths'
+import { createRemotePublisher } from '../shared/node/remote-publisher'
+import {
+  resolveStorageConfig,
+  toObjectStorageConfig
+} from '../shared/node/storage-config'
 import type {
   GallerySyncEvent,
-  GallerySyncProgress
+  GallerySyncProgress,
+  RemotePublisher
 } from '../shared/types/sync'
 import { runGallerySync } from './lib/gallery-sync'
 
@@ -18,8 +24,32 @@ export interface RunSyncCliOptions {
    */
   jsonl?: boolean
   paths?: GalleryPaths
+  /** Overrides the publisher derived from the environment (used by tests). */
+  remote?: RemotePublisher
   stdout?: (line: string) => void
   stderr?: (line: string) => void
+}
+
+/**
+ * Build the object-storage publisher from the environment.
+ *
+ * Uploads happen whenever object storage is configured, regardless of which
+ * source is currently being served. That way switching the source is instant and
+ * needs no re-sync, and a partially uploaded library is still usable.
+ */
+function resolveRemotePublisher(
+  paths: GalleryPaths
+): RemotePublisher | undefined {
+  const objectConfig = toObjectStorageConfig(resolveStorageConfig())
+
+  if (!objectConfig) {
+    return undefined
+  }
+
+  return createRemotePublisher({
+    ...objectConfig,
+    generatedDirectory: paths.generated
+  })
 }
 
 /**
@@ -45,8 +75,11 @@ export async function runSyncCli(
     return await withSyncLock(
       { lockPath: paths.lock, reason: 'cli' },
       async () => {
+        const remote = options.remote ?? resolveRemotePublisher(paths)
+
         const result = await runGallerySync({
           paths,
+          ...(remote ? { remote } : {}),
           ...(jsonl
             ? {
                 onProgress: (progress: GallerySyncProgress) => {

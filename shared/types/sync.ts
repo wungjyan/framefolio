@@ -44,3 +44,17 @@ export type GallerySyncEvent =
   | { type: 'result'; outcome: GallerySyncOutcome }
   | { type: 'lock-error'; message: string; holderPid?: number }
   | { type: 'fatal'; message: string }
+
+/**
+ * Publishes generated derivatives to object storage.
+ *
+ * Declared here rather than in the pipeline so the S3 adapter can implement it
+ * without importing the pipeline, which would pull sharp (a native module) into
+ * the server request path.
+ */
+export interface RemotePublisher {
+  /** Upload one generated file. `fileName` is the bare storage key. */
+  upload: (fileName: string, filePath: string) => Promise<void>
+  /** Remove one generated file. A missing object must not throw. */
+  remove: (fileName: string) => Promise<void>
+}

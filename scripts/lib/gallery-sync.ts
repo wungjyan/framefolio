@@ -42,18 +42,21 @@ import type {
   GalleryIndex,
   GalleryPhoto,
   PhotoIndexItem,
+  PhotoRemoteState,
   PhotoSourceState
 } from '../../shared/types/photo'
 import type {
   GallerySyncError,
   GallerySyncProgress,
-  GallerySyncSummary
+  GallerySyncSummary,
+  RemotePublisher
 } from '../../shared/types/sync'
 
 export type {
   GallerySyncError,
   GallerySyncProgress,
-  GallerySyncSummary
+  GallerySyncSummary,
+  RemotePublisher
 } from '../../shared/types/sync'
 // Re-export the pure fingerprint helpers so existing callers of this module
 // keep working after they moved to `shared/` (the admin API needs them without
@@ -123,6 +126,11 @@ export interface RunGallerySyncOptions {
    * stream progress to the admin UI; the CLI ignores it.
    */
   onProgress?: (progress: GallerySyncProgress) => void
+  /**
+   * When provided, every generated derivative is uploaded after it is written,
+   * and each photo records the uploaded revision. Omitted means local-only.
+   */
+  remote?: RemotePublisher
 }
 
 export async function ensureGalleryDirectories(
@@ -207,11 +215,31 @@ export async function runGallerySync(
   const sourceFilenames = new Set(sourcePhotos.map(photo => photo.relativePath))
   const nextPhotos: PhotoIndexItem[] = []
   const reportProgress = options.onProgress
+  const remote = options.remote
+  const now = options.now ?? (() => new Date())
   let completed = 0
 
   summary.deleted = [...previousByFilename.keys()].filter(
     filename => !sourceFilenames.has(filename)
   ).length
+
+  // Remove derivatives of photos that are no longer published. Done before the
+  // index is written so a failure is reported rather than silently leaking
+  // objects that no longer belong to any photo.
+  if (remote) {
+    for (const [filename, photo] of previousByFilename) {
+      if (sourceFilenames.has(filename)) {
+        continue
+      }
+
+      await removeRemoteDerivatives(
+        remote,
+        photo,
+        filename,
+        warnings
+      )
+    }
+  }
 
   reportProgress?.({
     phase: 'processing',
@@ -228,9 +256,17 @@ export async function runGallerySync(
       revision
     }
 
+    // A photo may be skipped only when the local derivatives are current AND, if
+    // object storage is in use, its copy is current too. Without the remote
+    // check, a photo whose upload failed once would be skipped forever: the local
+    // state never changes again, so the failure could never self-heal.
+    const remoteUpToDate =
+      !remote || previousPhoto?.remote?.revision === revision
+
     if (
       previousPhoto &&
       previousIndex?.pipelineVersion === GALLERY_PIPELINE_VERSION &&
+      remoteUpToDate &&
       sourcesMatch(previousPhoto.source, source) &&
       (await generatedFilesExist(previousPhoto, paths.generated))
     ) {
@@ -247,7 +283,14 @@ export async function runGallerySync(
     }
 
     try {
-      const photo = await processPhoto(sourcePhoto, source, paths, warnings)
+      const photo = await processPhoto(
+        sourcePhoto,
+        source,
+        paths,
+        warnings,
+        remote,
+        now
+      )
       nextPhotos.push(photo)
 
       if (previousPhoto) {
@@ -360,7 +403,9 @@ async function processPhoto(
   sourcePhoto: SourcePhoto,
   source: PhotoSourceState,
   paths: GalleryPaths,
-  warnings: string[]
+  warnings: string[],
+  remote: RemotePublisher | undefined,
+  now: () => Date
 ): Promise<PhotoIndexItem> {
   const id = createPhotoId(sourcePhoto.relativePath)
   const outputFiles = createOutputFiles(id, source.revision, paths.generated)
@@ -381,6 +426,27 @@ async function processPhoto(
     await rename(temporaryFiles.preview, outputFiles.preview.path)
     finalizedFiles.push(outputFiles.preview.path)
 
+    // Upload after the local files are in place. A failure here is recorded and
+    // the photo keeps its local derivatives: the index simply omits `remote`, so
+    // reads fall back to /media rather than showing a broken CDN image.
+    const remoteState = remote
+      ? await publishToRemote(
+          remote,
+          [
+            outputFiles.thumbnail.filename,
+            outputFiles.preview.filename
+          ],
+          [
+            outputFiles.thumbnail.path,
+            outputFiles.preview.path
+          ],
+          source,
+          sourcePhoto.relativePath,
+          warnings,
+          now
+        )
+      : undefined
+
     return {
       id,
       filename: sourcePhoto.relativePath,
@@ -390,6 +456,7 @@ async function processPhoto(
         thumbnail: outputFiles.thumbnail.filename,
         preview: outputFiles.preview.filename
       },
+      ...(remoteState ? { remote: remoteState } : {}),
       ...metadata,
       source
     }
@@ -399,6 +466,65 @@ async function processPhoto(
       ...finalizedFiles.map(file => rm(file, { force: true }))
     ])
     throw error
+  }
+}
+
+/**
+ * Upload this photo's derivatives and return the remote state to record.
+ *
+ * Returns undefined when the upload failed, which is deliberate: the index then
+ * omits `remote`, so URL resolution falls back to the local media route for this
+ * photo only. A transient object-storage failure must not hide the photo or
+ * abort the whole sync.
+ */
+async function publishToRemote(
+  remote: RemotePublisher,
+  filenames: string[],
+  filePaths: string[],
+  source: PhotoSourceState,
+  relativePath: string,
+  warnings: string[],
+  now: () => Date
+): Promise<PhotoRemoteState | undefined> {
+  try {
+    for (let index = 0; index < filenames.length; index += 1) {
+      await remote.upload(filenames[index] as string, filePaths[index] as string)
+    }
+
+    return {
+      provider: 's3',
+      revision: source.revision,
+      uploadedAt: now().toISOString()
+    }
+  } catch (error: unknown) {
+    warnings.push(
+      `Uploaded locally but not to object storage: ${relativePath}: ${getErrorMessage(error)}`
+    )
+
+    return undefined
+  }
+}
+
+/**
+ * Delete a retired photo's derivatives from object storage.
+ *
+ * Failures become warnings rather than errors: the index has already dropped the
+ * photo, so a leftover object is an orphan to clean up later, not a reason to
+ * fail the sync. A missing object is not an error either (idempotent retry).
+ */
+async function removeRemoteDerivatives(
+  remote: RemotePublisher,
+  photo: PhotoIndexItem,
+  filename: string,
+  warnings: string[]
+): Promise<void> {
+  try {
+    await remote.remove(photo.storage.thumbnail)
+    await remote.remove(photo.storage.preview)
+  } catch (error: unknown) {
+    warnings.push(
+      `Could not remove object storage copies of ${filename}: ${getErrorMessage(error)}`
+    )
   }
 }
 

@@ -6,6 +6,8 @@ import '../../assets/css/admin.css'
 import type {
   AdminPhoto,
   AdminPhotosResponse,
+  AdminStorageSourceResponse,
+  AdminStorageStatusResponse,
   AdminSyncStatusResponse
 } from '../../../shared/types/admin'
 import { useAdminApi } from '../../composables/useAdminApi'
@@ -36,6 +38,9 @@ const pending = ref<AdminPhotosResponse['pending']>({
   total: 0
 })
 const syncStatus = ref<AdminSyncStatusResponse>()
+const storageSource = ref<AdminStorageSourceResponse>()
+const storageStatus = ref<AdminStorageStatusResponse>()
+const switchingSource = ref(false)
 const loading = ref(false)
 const syncing = ref(false)
 const deleting = ref(false)
@@ -70,7 +75,7 @@ async function loadAll(): Promise<void> {
   loading.value = true
 
   try {
-    await Promise.all([loadPhotos(), loadSyncStatus()])
+    await Promise.all([loadPhotos(), loadSyncStatus(), loadStorage()])
   } finally {
     loading.value = false
   }
@@ -87,6 +92,50 @@ async function loadSyncStatus(): Promise<void> {
     syncStatus.value = await api.syncStatus()
   } catch {
     // Status is informational; a failure here must not blank the page.
+  }
+}
+
+async function loadStorage(): Promise<void> {
+  try {
+    // Two calls: the switch only needs the source, while the completeness
+    // report may block on object storage being reachable.
+    const [source] = await Promise.all([
+      api.storageSource(),
+      api
+        .storageStatus()
+        .then(status => {
+          storageStatus.value = status
+        })
+        .catch(() => {
+          storageStatus.value = undefined
+        })
+    ])
+    storageSource.value = source
+  } catch {
+    storageSource.value = undefined
+  }
+}
+
+async function onSelectSource(source: 'local' | 'r2'): Promise<void> {
+  if (switchingSource.value || storageSource.value?.source === source) {
+    return
+  }
+
+  switchingSource.value = true
+
+  try {
+    storageSource.value = await api.setStorageSource(source)
+    setMessage(
+      source === 'r2'
+        ? '访问源已切换为对象存储。刷新首页即可看到图片走 CDN。'
+        : '访问源已切换为本地。',
+      'muted'
+    )
+    await loadStorage()
+  } catch (error: unknown) {
+    setMessage(readMessage(error, '切换访问源失败。'), 'warning')
+  } finally {
+    switchingSource.value = false
   }
 }
 
@@ -287,6 +336,16 @@ function readMessage(error: unknown, fallback: string): string {
       <section class="admin-section" aria-labelledby="admin-upload-heading">
         <h2 id="admin-upload-heading" class="admin-section__title">上传照片</h2>
         <AdminUploader @uploaded="onUploaded" />
+      </section>
+
+      <section class="admin-section" aria-labelledby="admin-storage-heading">
+        <h2 id="admin-storage-heading" class="admin-section__title">访问源</h2>
+        <AdminStoragePanel
+          :source="storageSource"
+          :status="storageStatus"
+          :busy="switchingSource"
+          @select="onSelectSource"
+        />
       </section>
 
       <section class="admin-section" aria-labelledby="admin-photos-heading">

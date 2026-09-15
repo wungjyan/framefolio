@@ -138,3 +138,39 @@ export interface AdminDeleteResponse {
   /** True when the deletion is visible to visitors only after a sync. */
   requiresSync: boolean
 }
+
+/** Response of `GET|PUT /api/admin/storage/source`. */
+export interface AdminStorageSourceResponse {
+  /** Configured source, as requested by the operator. */
+  source: 'local' | 'r2'
+  /** Source actually used; differs when r2 is selected but incomplete. */
+  effectiveSource: 'local' | 'r2'
+  configured: boolean
+  publicBaseUrl?: string
+  updatedAt?: string
+}
+
+/** Response of `GET /api/admin/storage`. */
+export interface AdminStorageStatusResponse {
+  /** Configured source, as requested by the operator. */
+  source: 'local' | 'r2'
+  /** Source actually used; differs when r2 is selected but incomplete. */
+  effectiveSource: 'local' | 'r2'
+  configured: boolean
+  connected?: boolean
+  message?: string
+  publicBaseUrl?: string
+  prefix?: string
+  /** Photos in the published index. */
+  totalPhotos: number
+  /** Photos whose current revision is recorded as uploaded. */
+  photosWithRemote: number
+  /** Derivatives the index references (2 per photo). */
+  expectedObjects: number
+  /** Objects found in the bucket under the prefix. */
+  storedObjects?: number
+  /** Referenced derivatives missing from the bucket. */
+  missingObjects?: number
+  /** Objects in the bucket that no photo references. */
+  orphanedObjects?: number
+}

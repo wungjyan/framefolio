@@ -20,6 +20,8 @@ export interface GalleryPaths {
   state: string
   jobs: string
   lock: string
+  /** Persisted storage-source selection, written by the admin UI. */
+  storageState: string
   index: string
 }
 
@@ -51,6 +53,7 @@ export function resolveGalleryPaths(
     state,
     jobs: resolve(state, 'jobs.json'),
     lock: resolve(state, 'sync.lock'),
+    storageState: resolve(state, 'storage.json'),
     index: resolve(data, GALLERY_INDEX_FILENAME)
   }
 }

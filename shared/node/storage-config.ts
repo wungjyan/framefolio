@@ -5,10 +5,8 @@
  * Nuxt's `NUXT_*` convention, so Compose files use one consistent prefix.
  */
 
-import {
-  parseStorageSource,
-  type StorageSource
-} from '../../shared/node/photo-url'
+import { parseStorageSource, type StorageSource } from './photo-url'
+import type { ObjectStorageConfig } from './object-storage'
 
 export const STORAGE_SOURCE_ENV = 'FRAMEFOLIO_STORAGE_SOURCE'
 export const S3_ENDPOINT_ENV = 'FRAMEFOLIO_S3_ENDPOINT'
@@ -18,6 +16,7 @@ export const S3_ACCESS_KEY_ENV = 'FRAMEFOLIO_S3_ACCESS_KEY_ID'
 export const S3_SECRET_KEY_ENV = 'FRAMEFOLIO_S3_SECRET_ACCESS_KEY'
 export const S3_PUBLIC_BASE_URL_ENV = 'FRAMEFOLIO_S3_PUBLIC_BASE_URL'
 export const S3_PREFIX_ENV = 'FRAMEFOLIO_S3_PREFIX'
+export const S3_FORCE_PATH_STYLE_ENV = 'FRAMEFOLIO_S3_FORCE_PATH_STYLE'
 
 export interface StorageConfig {
   source: StorageSource
@@ -28,6 +27,8 @@ export interface StorageConfig {
   secretAccessKey: string | undefined
   publicBaseUrl: string | undefined
   prefix: string | undefined
+  /** Path-style addressing; required by MinIO and most self-hosted servers. */
+  forcePathStyle: boolean
 }
 
 const DEFAULT_REGION = 'auto'
@@ -43,7 +44,8 @@ export function resolveStorageConfig(
     accessKeyId: normalize(environment[S3_ACCESS_KEY_ENV]),
     secretAccessKey: normalize(environment[S3_SECRET_KEY_ENV]),
     publicBaseUrl: normalizeUrl(environment[S3_PUBLIC_BASE_URL_ENV]),
-    prefix: normalize(environment[S3_PREFIX_ENV])
+    prefix: normalize(environment[S3_PREFIX_ENV]),
+    forcePathStyle: isTruthy(environment[S3_FORCE_PATH_STYLE_ENV])
   }
 }
 
@@ -71,6 +73,30 @@ export function resolveEffectiveSource(config: StorageConfig): StorageSource {
   return config.source
 }
 
+/**
+ * Build the S3 client configuration.
+ *
+ * Returns undefined unless object storage is fully configured, so callers treat
+ * "not configured" and "incomplete" the same way: sync locally, no upload.
+ */
+export function toObjectStorageConfig(
+  config: StorageConfig
+): ObjectStorageConfig | undefined {
+  if (!isObjectStorageConfigured(config)) {
+    return undefined
+  }
+
+  return {
+    endpoint: config.endpoint as string,
+    region: config.region,
+    bucket: config.bucket as string,
+    accessKeyId: config.accessKeyId as string,
+    secretAccessKey: config.secretAccessKey as string,
+    ...(config.prefix ? { prefix: config.prefix } : {}),
+    forcePathStyle: config.forcePathStyle
+  }
+}
+
 function normalize(value: string | undefined): string | undefined {
   if (typeof value !== 'string') {
     return undefined
@@ -82,4 +108,9 @@ function normalize(value: string | undefined): string | undefined {
 
 function normalizeUrl(value: string | undefined): string | undefined {
   return normalize(value)
+}
+
+function isTruthy(value: string | undefined): boolean {
+  const normalized = normalize(value)?.toLowerCase()
+  return normalized === '1' || normalized === 'true' || normalized === 'yes'
 }

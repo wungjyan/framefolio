@@ -2,6 +2,8 @@ import type {
   AdminDeleteResponse,
   AdminPhotosResponse,
   AdminSessionResponse,
+  AdminStorageSourceResponse,
+  AdminStorageStatusResponse,
   AdminSyncStartResponse,
   AdminSyncStatusResponse,
   AdminUploadResponse
@@ -86,6 +88,21 @@ export function useAdminApi() {
         `/api/admin/photos/${encodeURIComponent(filename)}`,
         { method: 'DELETE' }
       ),
+
+    /** Active storage source and how complete the remote copy is. */
+    storageStatus: () =>
+      request<AdminStorageStatusResponse>('/api/admin/storage'),
+
+    storageSource: () =>
+      request<AdminStorageSourceResponse>('/api/admin/storage/source'),
+
+    /** Switch source. Takes effect on the next read; no files are moved. */
+    setStorageSource: (source: 'local' | 'r2') =>
+      request<AdminStorageSourceResponse>('/api/admin/storage/source', {
+        method: 'PUT',
+        body: { source },
+        headers: { 'content-type': 'application/json' }
+      }),
 
     /**
      * Upload one file as a raw streaming PUT.
