@@ -4,6 +4,7 @@ import { resolveGalleryPaths } from './shared/node/gallery-paths'
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   css: ['~/assets/css/main.css'],
+  modules: ['@nuxt/eslint'],
   devServer: {
     port: 3123
   },
@@ -23,5 +24,14 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     galleryDataDir: resolveGalleryPaths().data
+  },
+  routeRules: {
+    // The admin area is a client-rendered SPA: it has no SEO requirement and
+    // its content (session, job progress, pending changes) is runtime state.
+    // The public gallery keeps its SSR rendering untouched.
+    '/admin/**': { ssr: false },
+    // Belt-and-braces with public/robots.txt. Neither is access control —
+    // authentication is enforced by the admin API middleware.
+    '/api/admin/**': { headers: { 'X-Robots-Tag': 'noindex, nofollow' } }
   }
 })

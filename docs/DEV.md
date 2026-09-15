@@ -153,8 +153,11 @@ useFetch('/api/photos')
 默认：
 
 ```ts
-editorial
+justified
 ```
+
+> 以代码为准：`app/composables/useGalleryLayout.ts` 的初始值为 `justified`。
+> 该默认值属于公开画廊的展示行为，本次重构保持不变。
 
 页面右上角提供一个极简布局切换图标，不要使用明显的大按钮或复杂文字。图标表示点击后将切换到的目标布局。
 
