@@ -2,7 +2,7 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-Framefolio is a minimalist, self-hosted photo portfolio. Place photos in the data directory and run the sync command to generate web-ready images and a photo index.
+Framefolio is a minimalist, self-hosted photo portfolio. Place photos in the data directory and run a sync to generate web-ready images and a photo index. A built-in admin area at `/admin` lets you upload, delete, and sync from a browser — including from a phone — so routine photo updates no longer require a terminal.
 
 ## Features
 
@@ -11,6 +11,8 @@ Framefolio is a minimalist, self-hosted photo portfolio. Place photos in the dat
 - Displays available EXIF metadata: camera, lens, 35mm-equivalent focal length, aperture, shutter speed, ISO, and capture date.
 - Generates WebP thumbnails and large previews without exposing original photos through the website.
 - Incrementally syncs photos; adding, changing, or removing originals does not require rebuilding the app.
+- Admin area at `/admin` for uploading, deleting, and triggering a sync, with a clear "pending changes" view and a mobile-friendly layout.
+- Optional object-storage (S3-compatible, e.g. Cloudflare R2) delivery, with a switch between local and CDN sources and per-photo fallback to local for anything not yet uploaded.
 - Light and dark themes.
 
 JPEG, PNG, TIFF, and WebP originals are supported. HEIC, HEIF, AVIF, GIF, and camera RAW files are not currently supported.
@@ -30,24 +32,30 @@ curl -LO https://raw.githubusercontent.com/wungjyan/framefolio/main/compose.imag
 mkdir -p data/originals data/generated
 ```
 
-Place photos in `data/originals/`, then pull the image, sync the photos, and start the gallery:
+Pull the image and start the gallery:
 
 ```bash
 docker compose -f compose.image.yml pull
-docker compose -f compose.image.yml run --rm sync
 docker compose -f compose.image.yml up -d gallery
 ```
 
-The default image is `wungjyan/framefolio:latest`. To pin a version or change the port, create a `.env` file in the same directory:
+Then open `/admin` (for example `http://your-host:3123/admin`), sign in, and press **Sync now**.
+
+The default image is `wungjyan/framefolio:latest`. Create a `.env` file in the same directory to configure it:
 
 ```env
 FRAMEFOLIO_IMAGE=wungjyan/framefolio:1.0.0
 FRAMEFOLIO_PORT=3123
 PUID=1000
 PGID=1000
+
+# Required to use the admin area. Without it, /admin returns 404.
+FRAMEFOLIO_ADMIN_PASSWORD=choose-a-strong-password
 ```
 
-`PUID` and `PGID` control the host user identity used by the sync task when it writes files. On Linux, use `id -u` and `id -g` to find the right values; update them if they are not `1000`.
+`PUID` and `PGID` control the host user identity used when writing files. On Linux, use `id -u` and `id -g` to find the right values; update them if they are not `1000`.
+
+> **Upgrading from a version without the admin area?** The photo index format changed, so the public gallery shows an error until you sync once. Just open `/admin` and press **Sync now**. The first sync regenerates all thumbnails because the old index cannot be reused; later syncs are incremental.
 
 ### Option 2: Run directly from source
 
@@ -100,6 +108,26 @@ Store original photos in:
 data/originals/
 ```
 
+### From the admin area (recommended)
+
+Open `/admin`, sign in, then upload or delete photos and press **Sync now**.
+
+**Uploads and deletions do not take effect until you sync.** They only change the
+files in `data/originals/`; the public gallery is updated by the sync, which
+generates the images and writes the index in one operation. The admin area always
+shows how many changes are pending, and a deletion keeps the photo visible on the
+site until you sync.
+
+Deleting a photo moves its original to `data/.trash/` rather than erasing it, so
+a mistake is recoverable: move the file back and sync again. Nothing is deleted
+from `.trash/` automatically.
+
+### From the command line
+
+The command-line sync still works and is useful for large first imports, for
+recovering when the web service is down, and for scripting. It shares a lock with
+the web trigger, so the two can never run at the same time.
+
 When running directly from source:
 
 ```bash
@@ -118,9 +146,49 @@ When using the Docker Hub image:
 docker compose -f compose.image.yml run --rm sync
 ```
 
-Syncing updates `data/photos.json` and `data/generated/`. It is safe to run while the gallery is serving; refresh the page when it completes, without restarting the container.
+### What syncing touches
 
-Back up at least `data/originals/`. Back up the whole `data/` directory as well if you want to restore without regenerating images.
+Syncing updates `data/photos.json` and `data/generated/`. It is safe to run while
+the gallery is serving; refresh the page when it completes, without restarting the
+container.
+
+### Backup
+
+Back up at least `data/originals/` — it is the only irreplaceable data, and
+`data/photos.json` can be rebuilt from it by syncing.
+
+Also worth backing up: `data/photos.json` and `data/.state/` (saved settings).
+
+Safe to skip: `data/generated/` (regenerated on demand) and `data/.trash/`
+(deleted photos awaiting permanent removal).
+
+## Admin area
+
+The admin area lives at `/admin`. There is deliberately no link to it from the
+gallery, so type the URL directly. It is disabled — returning 404 — unless
+`FRAMEFOLIO_ADMIN_PASSWORD` is set.
+
+Because `/admin` is reachable from the internet, adding a second layer of
+authentication for it at your reverse proxy (Cloudflare Access, or HTTP Basic
+Auth) is recommended. `robots.txt` and a `noindex` header keep it out of search
+engines, but neither is access control.
+
+## Object storage (CDN)
+
+Images can be served from any S3-compatible object storage — Cloudflare R2 is the
+intended target — while local disk keeps working as the fallback.
+
+1. Create a bucket and an API token with object read and write permission.
+2. Bind a custom domain to the bucket. Prefer a custom domain over `r2.dev`, which
+   is rate-limited and not cached.
+3. Add the `FRAMEFOLIO_S3_*` variables to `.env` (see `.env.example`).
+4. Restart, then switch the source to **Object storage** in `/admin`.
+
+Syncing uploads derivatives whenever object storage is configured, no matter which
+source is currently active. That means **switching sources needs no re-sync**, and
+a photo that failed to upload is retried by the next sync. A photo that has not
+been uploaded yet falls back to local for that photo only, so a partial upload
+never produces broken images.
 
 ## Common Docker commands
 

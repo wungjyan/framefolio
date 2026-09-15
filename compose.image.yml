@@ -1,20 +1,68 @@
 name: framefolio
 
+# Environment shared by both services.
+#
+# Admin and storage settings are passed through explicitly rather than relying on
+# `env_file`, so a variable missing from .env cannot silently disable the admin
+# area or fall back to local storage without the operator noticing.
+x-framefolio-environment: &framefolio-environment
+  NUXT_GALLERY_DATA_DIR: /app/data
+  # Admin area. When FRAMEFOLIO_ADMIN_PASSWORD is unset, /admin and
+  # /api/admin/* return 404 and the admin area is effectively absent.
+  FRAMEFOLIO_ADMIN_PASSWORD: ${FRAMEFOLIO_ADMIN_PASSWORD:-}
+  FRAMEFOLIO_SESSION_SECRET: ${FRAMEFOLIO_SESSION_SECRET:-}
+  FRAMEFOLIO_SESSION_TTL: ${FRAMEFOLIO_SESSION_TTL:-}
+  # Upload limits.
+  FRAMEFOLIO_MAX_UPLOAD_BYTES: ${FRAMEFOLIO_MAX_UPLOAD_BYTES:-}
+  FRAMEFOLIO_MAX_UPLOAD_PIXELS: ${FRAMEFOLIO_MAX_UPLOAD_PIXELS:-}
+  # Storage source: local | r2.
+  FRAMEFOLIO_STORAGE_SOURCE: ${FRAMEFOLIO_STORAGE_SOURCE:-local}
+  FRAMEFOLIO_S3_ENDPOINT: ${FRAMEFOLIO_S3_ENDPOINT:-}
+  FRAMEFOLIO_S3_REGION: ${FRAMEFOLIO_S3_REGION:-auto}
+  FRAMEFOLIO_S3_BUCKET: ${FRAMEFOLIO_S3_BUCKET:-}
+  FRAMEFOLIO_S3_ACCESS_KEY_ID: ${FRAMEFOLIO_S3_ACCESS_KEY_ID:-}
+  FRAMEFOLIO_S3_SECRET_ACCESS_KEY: ${FRAMEFOLIO_S3_SECRET_ACCESS_KEY:-}
+  FRAMEFOLIO_S3_PUBLIC_BASE_URL: ${FRAMEFOLIO_S3_PUBLIC_BASE_URL:-}
+  FRAMEFOLIO_S3_PREFIX: ${FRAMEFOLIO_S3_PREFIX:-}
+  FRAMEFOLIO_S3_FORCE_PATH_STYLE: ${FRAMEFOLIO_S3_FORCE_PATH_STYLE:-false}
+
+x-framefolio-runtime: &framefolio-runtime
+  image: ${FRAMEFOLIO_IMAGE:-wungjyan/framefolio:latest}
+  init: true
+  user: '${PUID:-1000}:${PGID:-1000}'
+  environment:
+    <<: *framefolio-environment
+
 services:
   gallery:
-    image: ${FRAMEFOLIO_IMAGE:-wungjyan/framefolio:latest}
-    init: true
-    user: "${PUID:-1000}:${PGID:-1000}"
+    <<: *framefolio-runtime
     restart: unless-stopped
     ports:
-      - "${FRAMEFOLIO_PORT:-3123}:3123"
+      - '${FRAMEFOLIO_PORT:-3123}:3123'
     volumes:
-      - ./data:/app/data:ro
+      # Writable: the admin area uploads originals, moves deletes into .trash/,
+      # and the sync child process writes derivatives and the index.
+      #
+      # This is a real change in posture: previously a compromised container
+      # could not touch the originals. The mitigations are the admin password,
+      # the upload validation, and (recommended) an extra auth layer on /admin
+      # at the reverse proxy.
+      - ./data:/app/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3123/favicon.ico').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
+  # Manual escape hatch. Shares the same lock as the web trigger, so running this
+  # while a sync is already in flight fails fast instead of corrupting the index.
   sync:
-    image: ${FRAMEFOLIO_IMAGE:-wungjyan/framefolio:latest}
-    init: true
-    user: "${PUID:-1000}:${PGID:-1000}"
+    <<: *framefolio-runtime
     profiles:
       - tools
     command:
@@ -24,4 +72,3 @@ services:
       - scripts/gallery-sync.ts
     volumes:
       - ./data:/app/data
-

@@ -7,24 +7,47 @@ x-framefolio-image: &framefolio-image
     args:
       NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
 
+# Environment shared by both services. Kept in sync with compose.image.yml.
+x-framefolio-environment: &framefolio-environment
+  NUXT_GALLERY_DATA_DIR: /app/data
+  FRAMEFOLIO_ADMIN_PASSWORD: ${FRAMEFOLIO_ADMIN_PASSWORD:-}
+  FRAMEFOLIO_SESSION_SECRET: ${FRAMEFOLIO_SESSION_SECRET:-}
+  FRAMEFOLIO_SESSION_TTL: ${FRAMEFOLIO_SESSION_TTL:-}
+  FRAMEFOLIO_MAX_UPLOAD_BYTES: ${FRAMEFOLIO_MAX_UPLOAD_BYTES:-}
+  FRAMEFOLIO_MAX_UPLOAD_PIXELS: ${FRAMEFOLIO_MAX_UPLOAD_PIXELS:-}
+  FRAMEFOLIO_STORAGE_SOURCE: ${FRAMEFOLIO_STORAGE_SOURCE:-local}
+  FRAMEFOLIO_S3_ENDPOINT: ${FRAMEFOLIO_S3_ENDPOINT:-}
+  FRAMEFOLIO_S3_REGION: ${FRAMEFOLIO_S3_REGION:-auto}
+  FRAMEFOLIO_S3_BUCKET: ${FRAMEFOLIO_S3_BUCKET:-}
+  FRAMEFOLIO_S3_ACCESS_KEY_ID: ${FRAMEFOLIO_S3_ACCESS_KEY_ID:-}
+  FRAMEFOLIO_S3_SECRET_ACCESS_KEY: ${FRAMEFOLIO_S3_SECRET_ACCESS_KEY:-}
+  FRAMEFOLIO_S3_PUBLIC_BASE_URL: ${FRAMEFOLIO_S3_PUBLIC_BASE_URL:-}
+  FRAMEFOLIO_S3_PREFIX: ${FRAMEFOLIO_S3_PREFIX:-}
+  FRAMEFOLIO_S3_FORCE_PATH_STYLE: ${FRAMEFOLIO_S3_FORCE_PATH_STYLE:-false}
+
 x-framefolio-runtime: &framefolio-runtime
   <<: *framefolio-image
   init: true
-  user: "${PUID:-1000}:${PGID:-1000}"
+  user: '${PUID:-1000}:${PGID:-1000}'
   environment:
-    NUXT_GALLERY_DATA_DIR: /app/data
+    <<: *framefolio-environment
 
 services:
   gallery:
     <<: *framefolio-runtime
     restart: unless-stopped
     ports:
-      - "${FRAMEFOLIO_PORT:-3123}:3123"
+      - '${FRAMEFOLIO_PORT:-3123}:3123'
     volumes:
+      # Writable: the admin area uploads originals, moves deletes into .trash/,
+      # and the sync child process writes derivatives and the index.
+      #
+      # Previously read-only, which meant a compromised container could not touch
+      # the originals. The mitigations are the admin password, upload validation,
+      # and (recommended) an extra auth layer on /admin at the reverse proxy.
       - type: bind
         source: ./data
         target: /app/data
-        read_only: true
     healthcheck:
       test:
         - CMD
@@ -36,6 +59,8 @@ services:
       retries: 3
       start_period: 10s
 
+  # Manual escape hatch. Shares the same lock as the web-triggered sync, so it
+  # fails fast instead of corrupting the index when a sync is already running.
   sync:
     <<: *framefolio-runtime
     profiles:
