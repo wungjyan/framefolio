@@ -92,6 +92,64 @@ describe('AdminLogin', () => {
   })
 })
 
+describe('AdminLogin disabled state', () => {
+  it('explains a 404 as "admin not configured" rather than a bad password', async () => {
+    // A 404 means the whole admin feature is switched off. Mapping it to a
+    // password error would send the user hunting for a credential that does not
+    // exist, which is exactly the confusion this guards against.
+    const failure = Object.assign(new Error('Not Found'), { statusCode: 404 })
+    vi.doMock('../../app/composables/useAdminApi', () => ({
+      useAdminApi: () => ({
+        getSession: async () => {
+          throw failure
+        }
+      })
+    }))
+
+    vi.resetModules()
+    const { useAdminSession, resetAdminSessionState } =
+      await import('../../app/composables/useAdminSession')
+    resetAdminSessionState()
+
+    const session = useAdminSession()
+    await session.refresh()
+
+    expect(session.disabled.value).toBe(true)
+    expect(session.authenticated.value).toBe(false)
+
+    vi.doUnmock('../../app/composables/useAdminApi')
+    resetAdminSessionState()
+  })
+
+  it('does not flag a 401 as disabled', async () => {
+    const failure = Object.assign(new Error('Authentication required.'), {
+      statusCode: 401
+    })
+    vi.doMock('../../app/composables/useAdminApi', () => ({
+      useAdminApi: () => ({
+        getSession: async () => {
+          throw failure
+        }
+      })
+    }))
+
+    vi.resetModules()
+    const { useAdminSession, resetAdminSessionState } =
+      await import('../../app/composables/useAdminSession')
+    resetAdminSessionState()
+
+    const session = useAdminSession()
+    await session.refresh()
+
+    // 401 means "configured but not logged in": the login form must show.
+    expect(session.disabled.value).toBe(false)
+    expect(session.authenticated.value).toBe(false)
+
+    vi.doUnmock('../../app/composables/useAdminApi')
+    resetAdminSessionState()
+  })
+})
+
 describe('AdminConfirmDialog', () => {
   it('states that the photo stays visible until a sync runs', async () => {
     // This wording is the main safeguard against the "I deleted it but it is

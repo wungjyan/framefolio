@@ -127,6 +127,41 @@
   color: var(--gallery-ink);
 }
 
+/* "Admin not configured" notice */
+
+.admin-disabled {
+  display: grid;
+  gap: var(--gallery-space-sm);
+  width: min(100%, 34rem);
+  padding-top: 15vh;
+}
+
+.admin-disabled__headline {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.admin-disabled__text {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--gallery-muted);
+}
+
+.admin-disabled__code {
+  padding: var(--gallery-space-sm);
+  margin: 0;
+  overflow-x: auto;
+  font-size: 0.75rem;
+  background: var(--gallery-surface);
+}
+
+.admin-disabled__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--gallery-muted);
+}
+
 /* Notices */
 
 .admin-notice {

@@ -27,7 +27,8 @@ useHead({
 })
 
 const api = useAdminApi()
-const { authenticated, checking, refresh, login, logout } = useAdminSession()
+const { authenticated, checking, disabled, refresh, login, logout } =
+  useAdminSession()
 
 const loginForm = ref<{ reset: () => void; setError: (m: string) => void }>()
 const photos = ref<AdminPhoto[]>([])
@@ -296,6 +297,25 @@ function readMessage(error: unknown, fallback: string): string {
     <template v-if="checking">
       <p class="admin-empty" role="status">正在检查登录状态…</p>
     </template>
+
+    <section v-else-if="disabled" class="admin-disabled" role="alert">
+      <h1 class="admin-login__title">FRAMEFOLIO 管理</h1>
+      <p class="admin-disabled__headline">管理端未启用</p>
+      <p class="admin-disabled__text">
+        服务端没有配置管理口令，因此所有 <code>/api/admin/*</code> 接口都返回
+        404。
+      </p>
+      <p class="admin-disabled__text">
+        设置环境变量 <code>FRAMEFOLIO_ADMIN_PASSWORD</code> 后重启即可启用：
+      </p>
+      <pre class="admin-disabled__code"><code># .env（与 compose 文件同目录）
+FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令</code></pre>
+      <p class="admin-disabled__text">本地开发时直接在命令前加上变量即可：</p>
+      <pre
+        class="admin-disabled__code"
+      ><code>FRAMEFOLIO_ADMIN_PASSWORD=你的口令 pnpm dev</code></pre>
+      <p class="admin-disabled__hint">公开画廊不受影响，始终可以正常访问。</p>
+    </section>
 
     <AdminLogin v-else-if="!authenticated" ref="loginForm" @submit="onLogin" />
 

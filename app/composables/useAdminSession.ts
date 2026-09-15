@@ -10,6 +10,16 @@ import { useAdminApi } from './useAdminApi'
  */
 const authenticated = ref(false)
 const checking = ref(true)
+/**
+ * True when the server reports that the admin area is not configured.
+ *
+ * The server returns 404 for every `/api/admin/*` route in that state, which
+ * keeps an unconfigured deployment indistinguishable from one where the routes
+ * do not exist. The page must still explain what is wrong: showing a login form
+ * that can never succeed would make the user guess a password and fail before
+ * learning that no password is set.
+ */
+const disabled = ref(false)
 
 export function useAdminSession() {
   const api = useAdminApi()
@@ -20,12 +30,13 @@ export function useAdminSession() {
 
     try {
       const session = await api.getSession()
+      disabled.value = false
       authenticated.value = session.authenticated
     } catch (error: unknown) {
-      // A 401 simply means "not logged in yet"; anything else is also treated
-      // as unauthenticated so the login form is shown rather than a blank page.
+      // A 404 means the endpoint is absent because the feature is switched off,
+      // which is a configuration problem, not a failed login.
+      disabled.value = readStatusCode(error) === 404
       authenticated.value = false
-      void error
     } finally {
       checking.value = false
     }
@@ -49,14 +60,26 @@ export function useAdminSession() {
   return {
     authenticated: readonly(authenticated),
     checking: readonly(checking),
+    disabled: readonly(disabled),
     refresh,
     login,
     logout
   }
 }
 
+function readStatusCode(error: unknown): number {
+  if (typeof error === 'object' && error !== null) {
+    const candidate = error as { statusCode?: unknown }
+    const statusCode = Number(candidate.statusCode)
+    return Number.isFinite(statusCode) ? statusCode : 0
+  }
+
+  return 0
+}
+
 /** Test helper: reset module-level session state between cases. */
 export function resetAdminSessionState(): void {
   authenticated.value = false
   checking.value = true
+  disabled.value = false
 }
