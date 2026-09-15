@@ -1,6 +1,6 @@
 import { getAdminContext } from '../../utils/admin-context'
 import { requireAdmin } from '../../utils/admin-guard'
-import { readGalleryIndex } from '../../utils/gallery-index'
+import { readGalleryIndexTolerant } from '../../utils/gallery-index'
 import {
   buildAdminPhotos,
   scanOriginalFiles,
@@ -21,15 +21,25 @@ export default defineEventHandler(async event => {
 
   const { paths } = getAdminContext(event)
 
-  // A missing index is an empty gallery; an incompatible one throws, which is
-  // correct here: the admin must know the index needs a sync.
-  const index = await readGalleryIndex(paths.index)
+  // Tolerant on purpose: after upgrading from an older schema the index cannot
+  // be read, and the admin area must still work so the user can press Sync.
+  // Every original then reports as "added", which is accurate.
+  const { index, compatible, reason } = await readGalleryIndexTolerant(
+    paths.index
+  )
   const originals = await scanOriginalFiles(paths.originals)
   const photos = buildAdminPhotos(index, originals)
 
   const response: AdminPhotosResponse = {
     photos,
-    pending: summarizePending(photos)
+    pending: summarizePending(photos),
+    ...(compatible
+      ? {}
+      : {
+          indexIncompatible: true,
+          indexMessage:
+            reason ?? 'The photo index needs to be rebuilt. Press Sync now.'
+        })
   }
 
   return response

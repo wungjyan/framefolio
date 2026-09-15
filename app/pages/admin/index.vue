@@ -37,6 +37,7 @@ const pending = ref<AdminPhotosResponse['pending']>({
   pendingDelete: 0,
   total: 0
 })
+const indexIncompatible = ref(false)
 const syncStatus = ref<AdminSyncStatusResponse>()
 const storageSource = ref<AdminStorageSourceResponse>()
 const storageStatus = ref<AdminStorageStatusResponse>()
@@ -85,6 +86,9 @@ async function loadPhotos(): Promise<void> {
   const result = await api.listPhotos()
   photos.value = result.photos
   pending.value = result.pending
+  // Set after an upgrade from an older index format: everything reads as
+  // pending, and the user needs to know why.
+  indexIncompatible.value = result.indexIncompatible === true
 }
 
 async function loadSyncStatus(): Promise<void> {
@@ -318,6 +322,18 @@ function readMessage(error: unknown, fallback: string): string {
         aria-live="polite"
       >
         {{ message }}
+      </p>
+
+      <p
+        v-if="indexIncompatible"
+        class="admin-notice admin-notice--warning"
+        role="alert"
+      >
+        <strong>索引需要重建。</strong>
+        现有 <code>data/photos.json</code> 是旧格式，当前版本读不了，
+        因此所有照片都显示为「待新增」。点下面的「立即同步」重建索引即可；
+        <strong>未点同步之前，公开画廊会显示错误状态</strong
+        >。首次同步会重新生成全部缩略图，之后都是增量。
       </p>
 
       <section class="admin-section" aria-labelledby="admin-sync-heading">

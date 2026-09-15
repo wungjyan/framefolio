@@ -8,7 +8,7 @@ import { inspectObjectStorage } from '../../../shared/node/remote-publisher'
 import type { AdminStorageStatusResponse } from '../../../shared/types/admin'
 import { getAdminContext } from '../../utils/admin-context'
 import { requireAdmin } from '../../utils/admin-guard'
-import { readGalleryIndex } from '../../utils/gallery-index'
+import { readGalleryIndexTolerant } from '../../utils/gallery-index'
 
 /**
  * Report the active storage source and how complete the object storage copy is.
@@ -24,7 +24,8 @@ export default defineEventHandler(async event => {
   const { paths } = getAdminContext(event)
   const storage = resolveStorageConfig()
   const objectConfig = toObjectStorageConfig(storage)
-  const index = await readGalleryIndex(paths.index)
+  // Tolerant: an unreadable index still lets the page render.
+  const { index } = await readGalleryIndexTolerant(paths.index)
 
   // Every derivative the index currently references.
   const expectedKeys = index.photos.flatMap(photo => [

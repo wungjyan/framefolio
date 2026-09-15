@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
   GalleryIndexError,
+  readGalleryIndex,
+  readGalleryIndexTolerant,
   readPublicGalleryPhotos
 } from '../../server/utils/gallery-index'
 import {
@@ -78,6 +80,68 @@ describe('gallery runtime index', () => {
     await expect(readPublicGalleryPhotos(paths.index)).rejects.toBeInstanceOf(
       GalleryIndexError
     )
+  })
+})
+
+describe('tolerant index reading for the admin area', () => {
+  it('reports an empty index and incompatibility for an old schema', async () => {
+    // This is the post-upgrade state: the admin must keep working so the user
+    // can press Sync, while the public gallery correctly refuses to serve.
+    const paths = resolveGalleryPaths({ dataDirectory: fixturePath('old') })
+    await mkdir(paths.data, { recursive: true })
+
+    const oldIndex = createIndex(createPhoto())
+    // A v1-style entry: baked URL, no storage keys.
+    const legacy = {
+      schemaVersion: 1,
+      pipelineVersion: 2,
+      generatedAt: oldIndex.generatedAt,
+      photos: [
+        {
+          id: '0123456789abcdef',
+          filename: 'example.jpg',
+          thumbnail: '/media/0123456789abcdef-fedcba9876543210-thumbnail.webp',
+          preview: '/media/0123456789abcdef-fedcba9876543210-preview.webp',
+          width: 100,
+          height: 100,
+          source: { size: 1, mtimeMs: 1, revision: 'fedcba9876543210' }
+        }
+      ]
+    }
+    await writeFile(paths.index, JSON.stringify(legacy))
+
+    const tolerant = await readGalleryIndexTolerant(paths.index)
+
+    expect(tolerant.compatible).toBe(false)
+    expect(tolerant.index.photos).toEqual([])
+    expect(tolerant.reason).toBeDefined()
+
+    // The strict reader still rejects it, so visitors get an error rather than a
+    // silently empty gallery.
+    await expect(readGalleryIndex(paths.index)).rejects.toBeInstanceOf(
+      GalleryIndexError
+    )
+  })
+
+  it('reports a valid index as compatible with its photos', async () => {
+    const paths = resolveGalleryPaths({ dataDirectory: fixturePath('ok') })
+    const photo = createPhoto()
+    await mkdir(paths.data, { recursive: true })
+    await writeFile(paths.index, JSON.stringify(createIndex(photo)))
+
+    const tolerant = await readGalleryIndexTolerant(paths.index)
+
+    expect(tolerant.compatible).toBe(true)
+    expect(tolerant.index.photos).toHaveLength(1)
+  })
+
+  it('treats a missing index as compatible and empty', async () => {
+    const paths = resolveGalleryPaths({ dataDirectory: fixturePath('none') })
+
+    const tolerant = await readGalleryIndexTolerant(paths.index)
+
+    expect(tolerant.compatible).toBe(true)
+    expect(tolerant.index.photos).toEqual([])
   })
 })
 

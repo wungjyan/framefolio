@@ -56,10 +56,7 @@ export interface AdminPhoto {
 }
 
 export type AdminPhotoState =
-  | 'unchanged'
-  | 'added'
-  | 'changed'
-  | 'pending-delete'
+  'unchanged' | 'added' | 'changed' | 'pending-delete'
 
 /** Counts of unpublished changes, shown as the "pending" banner. */
 export interface AdminPendingSummary {
@@ -73,6 +70,13 @@ export interface AdminPendingSummary {
 export interface AdminPhotosResponse {
   photos: AdminPhoto[]
   pending: AdminPendingSummary
+  /**
+   * True when `photos.json` exists but this version cannot read it (for example
+   * after upgrading from an older schema). The admin area must still work in
+   * that state, because pressing Sync is what fixes it.
+   */
+  indexIncompatible?: boolean
+  indexMessage?: string
 }
 
 /** Response of `GET /api/admin/sync`. */

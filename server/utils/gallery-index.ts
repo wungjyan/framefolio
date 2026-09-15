@@ -45,6 +45,56 @@ export async function readPublicGalleryPhotos(
   return index.photos.map(photo => toPublicPhoto(photo, urlContext))
 }
 
+export interface TolerantGalleryIndex {
+  index: GalleryIndex
+  /**
+   * False when the file existed but could not be used (older schema, corrupt, or
+   * unreadable). The admin area still needs to render in that state so the user
+   * can press Sync; the public gallery must NOT tolerate it.
+   */
+  compatible: boolean
+  /** Why the index was rejected, for display in the admin area. */
+  reason?: string
+}
+
+/**
+ * Read the index for the admin area, tolerating an unusable file.
+ *
+ * The admin list must keep working when the index cannot be read: that is
+ * exactly the state after upgrading from an older schema, and the user needs the
+ * page in order to trigger the sync that fixes it. Reporting an empty index makes
+ * every original show up as "pending: added", which is accurate — nothing is
+ * published yet in a format this version can read.
+ *
+ * The public gallery deliberately uses the strict `readGalleryIndex` instead, so
+ * visitors get a clear error rather than a silently empty gallery.
+ */
+export async function readGalleryIndexTolerant(
+  indexPath: string
+): Promise<TolerantGalleryIndex> {
+  const empty: GalleryIndex = {
+    schemaVersion: GALLERY_SCHEMA_VERSION,
+    pipelineVersion: GALLERY_PIPELINE_VERSION,
+    generatedAt: new Date(0).toISOString(),
+    photos: []
+  }
+
+  try {
+    const index = await readGalleryIndex(indexPath)
+    return { index, compatible: true }
+  } catch (error: unknown) {
+    if (error instanceof GalleryIndexError) {
+      return {
+        index: empty,
+        compatible: false,
+        reason: error.message
+      }
+    }
+
+    throw error
+  }
+}
+
 /**
  * Read and validate the index.
  *
@@ -171,9 +221,7 @@ export function resolvePhotoUrl(
 
   if (base && remote && remote.revision === photo.source.revision) {
     const prefix = urlContext.prefix?.replace(/^\/+|\/+$/g, '')
-    return prefix
-      ? `${base}/${prefix}/${storageKey}`
-      : `${base}/${storageKey}`
+    return prefix ? `${base}/${prefix}/${storageKey}` : `${base}/${storageKey}`
   }
 
   return `${MEDIA_ROUTE_PREFIX}${storageKey}`
