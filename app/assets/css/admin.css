@@ -1,0 +1,333 @@
+/**
+ * Admin-only styles.
+ *
+ * Loaded exclusively by the admin page, so the public gallery's CSS is
+ * untouched. Everything reuses the existing design tokens, which means dark
+ * mode works without any extra rules.
+ *
+ * Deliberately plain: this is a functional back office, not a designed surface.
+ * The one hard requirement is mobile usability — controls are at least 44px
+ * tall and the table collapses to card rows below 48rem.
+ */
+
+.admin-shell {
+  width: min(100%, 72rem);
+  padding: var(--gallery-space-lg) var(--gallery-gutter);
+  margin: 0 auto;
+}
+
+.admin-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gallery-space-sm);
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: var(--gallery-space-sm);
+  border-bottom: 1px solid var(--gallery-surface-active);
+}
+
+.admin-header__title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.admin-header__actions {
+  display: flex;
+  gap: var(--gallery-space-sm);
+  align-items: center;
+}
+
+.admin-section {
+  margin-top: var(--gallery-space-lg);
+}
+
+.admin-section__title {
+  margin: 0 0 var(--gallery-space-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Controls */
+
+.admin-field {
+  display: grid;
+  gap: var(--gallery-space-xs);
+}
+
+.admin-field__label {
+  font-size: 0.75rem;
+  color: var(--gallery-muted);
+}
+
+.admin-input {
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  font: inherit;
+  color: inherit;
+  background: var(--gallery-canvas);
+  border: 1px solid var(--gallery-surface-active);
+  border-radius: 0;
+}
+
+.admin-input:focus-visible,
+.admin-button:focus-visible,
+.admin-link:focus-visible,
+.admin-dropzone:focus-visible {
+  outline: 1px solid var(--gallery-ink);
+  outline-offset: 2px;
+}
+
+.admin-button {
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--gallery-canvas);
+  cursor: pointer;
+  background: var(--gallery-ink);
+  border: 1px solid var(--gallery-ink);
+  border-radius: 0;
+}
+
+.admin-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.admin-button--secondary {
+  color: var(--gallery-ink);
+  background: transparent;
+  border-color: var(--gallery-surface-active);
+}
+
+.admin-button--danger {
+  color: var(--gallery-canvas);
+  background: var(--gallery-ink);
+}
+
+.admin-button--small {
+  min-height: 2.75rem;
+  padding: 0 0.875rem;
+}
+
+.admin-link {
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--gallery-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+}
+
+.admin-link:hover {
+  color: var(--gallery-ink);
+}
+
+/* Notices */
+
+.admin-notice {
+  padding: var(--gallery-space-sm) var(--gallery-space-md);
+  margin-top: var(--gallery-space-md);
+  font-size: 0.8125rem;
+  border: 1px solid var(--gallery-surface-active);
+}
+
+.admin-notice--muted {
+  color: var(--gallery-muted);
+}
+
+.admin-notice--warning {
+  border-color: var(--gallery-ink);
+}
+
+/* Pending banner */
+
+.admin-pending {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gallery-space-sm);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--gallery-space-sm) var(--gallery-space-md);
+  margin-top: var(--gallery-space-md);
+  border: 1px solid var(--gallery-ink);
+}
+
+.admin-pending__counts {
+  font-size: 0.875rem;
+}
+
+.admin-pending__hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--gallery-muted);
+}
+
+/* Uploader */
+
+.admin-dropzone {
+  display: grid;
+  gap: var(--gallery-space-xs);
+  place-items: center;
+  min-height: 7rem;
+  padding: var(--gallery-space-md);
+  font-size: 0.8125rem;
+  color: var(--gallery-muted);
+  text-align: center;
+  cursor: pointer;
+  background: transparent;
+  border: 1px dashed var(--gallery-surface-active);
+  border-radius: 0;
+}
+
+.admin-dropzone[data-active='true'] {
+  color: var(--gallery-ink);
+  border-color: var(--gallery-ink);
+}
+
+.admin-upload-list {
+  display: grid;
+  gap: var(--gallery-space-xs);
+  padding: 0;
+  margin: var(--gallery-space-sm) 0 0;
+  list-style: none;
+}
+
+.admin-upload-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--gallery-space-sm);
+  align-items: center;
+  font-size: 0.8125rem;
+}
+
+.admin-upload-item__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-upload-item[data-status='error'] .admin-upload-item__name {
+  text-decoration: line-through;
+}
+
+/* Progress */
+
+.admin-progress {
+  height: 0.25rem;
+  overflow: hidden;
+  background: var(--gallery-surface);
+}
+
+.admin-progress__bar {
+  height: 100%;
+  background: var(--gallery-ink);
+  transition: width var(--gallery-motion-fast) var(--gallery-ease);
+}
+
+/* Photo list */
+
+.admin-table {
+  width: 100%;
+  font-size: 0.8125rem;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.625rem 0.5rem;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--gallery-surface-active);
+}
+
+.admin-table th {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--gallery-muted);
+}
+
+.admin-table__thumb {
+  width: 3rem;
+  height: 3rem;
+  object-fit: cover;
+  background: var(--gallery-surface);
+}
+
+.admin-table__name {
+  overflow-wrap: anywhere;
+}
+
+.admin-badge {
+  display: inline-block;
+  padding: 0.125rem 0.375rem;
+  font-size: 0.6875rem;
+  color: var(--gallery-muted);
+  border: 1px solid var(--gallery-surface-active);
+}
+
+.admin-badge--pending {
+  color: var(--gallery-ink);
+  border-color: var(--gallery-ink);
+}
+
+.admin-empty {
+  padding: var(--gallery-space-lg) 0;
+  font-size: 0.875rem;
+  color: var(--gallery-muted);
+}
+
+/* Mobile: the table becomes card rows so nothing overflows horizontally. */
+
+@media (max-width: 47.999rem) {
+  .admin-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .admin-table,
+  .admin-table tbody,
+  .admin-table tr,
+  .admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table tr {
+    padding: var(--gallery-space-sm) 0;
+    border-bottom: 1px solid var(--gallery-surface-active);
+  }
+
+  .admin-table td {
+    display: flex;
+    gap: var(--gallery-space-sm);
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    border: 0;
+  }
+
+  .admin-table td::before {
+    flex: none;
+    font-size: 0.75rem;
+    color: var(--gallery-muted);
+    content: attr(data-label);
+  }
+
+  .admin-table td[data-label='预览'] {
+    justify-content: flex-start;
+  }
+
+  .admin-table__thumb {
+    width: 4rem;
+    height: 4rem;
+  }
+}

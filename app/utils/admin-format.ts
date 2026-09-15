@@ -1,0 +1,90 @@
+/** Formatting helpers for the admin UI. */
+
+/** Human-readable byte size, e.g. `1.6 MB`. */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return '—'
+  }
+
+  if (bytes < 1024) {
+    return `${bytes} B`
+  }
+
+  const units = ['KB', 'MB', 'GB', 'TB']
+  let value = bytes / 1024
+  let unitIndex = 0
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex += 1
+  }
+
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unitIndex]}`
+}
+
+/** Local date-time for timestamps, or `—` when absent/invalid. */
+export function formatDateTime(value: string | undefined): string {
+  if (!value) {
+    return '—'
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return '—'
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(date)
+}
+
+/** Short relative age, e.g. `3 分钟前`. */
+export function formatRelative(
+  value: string | undefined,
+  now: Date = new Date()
+): string {
+  if (!value) {
+    return '—'
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return '—'
+  }
+
+  const seconds = Math.round((now.getTime() - date.getTime()) / 1000)
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+
+  if (Math.abs(seconds) < 60) {
+    return formatter.format(-seconds, 'second')
+  }
+
+  const minutes = Math.round(seconds / 60)
+  if (Math.abs(minutes) < 60) {
+    return formatter.format(-minutes, 'minute')
+  }
+
+  const hours = Math.round(minutes / 60)
+  if (Math.abs(hours) < 24) {
+    return formatter.format(-hours, 'hour')
+  }
+
+  return formatter.format(-Math.round(hours / 24), 'day')
+}
+
+/** Display label for a photo state badge. */
+export function photoStateLabel(state: string): string {
+  switch (state) {
+    case 'added':
+      return '待新增'
+    case 'changed':
+      return '待更新'
+    case 'pending-delete':
+      return '待删除'
+    default:
+      return '已发布'
+  }
+}

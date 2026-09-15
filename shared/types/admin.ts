@@ -111,6 +111,16 @@ export interface AdminSyncStatusResponse {
 export interface AdminSyncStartResponse {
   started: boolean
   jobId: string
+  /** Final status of the run, since the request waits for completion. */
+  status?: 'running' | 'succeeded' | 'failed'
+  summary?: {
+    added: number
+    updated: number
+    skipped: number
+    deleted: number
+    failed: number
+  }
+  errors?: { filename: string; message: string }[]
 }
 
 /** Response of `PUT /api/admin/photos/:filename`. */
