@@ -287,10 +287,17 @@ corepack enable
 pnpm install
 ```
 
-**开发模式**（带热重载，会自动读取 `.env`）：
+**开发模式**（带热重载）：
 
 ```bash
-FRAMEFOLIO_ADMIN_PASSWORD=你的口令 pnpm dev
+pnpm dev
+```
+
+开发模式会自动读取 `.env` 和 `.env.local`，所以你可以把口令写进文件而不是每次敲命令：
+
+```env
+# .env.local（个人配置，已被 .gitignore 忽略）
+FRAMEFOLIO_ADMIN_PASSWORD=你的口令
 ```
 
 **生产模式**：
@@ -302,6 +309,32 @@ FRAMEFOLIO_ADMIN_PASSWORD=你的口令 NITRO_HOST=0.0.0.0 NITRO_PORT=3123 \
 ```
 
 > 构建本身不需要口令，**运行时才需要**。
+
+### 配置文件怎么生效
+
+三种运行方式读取配置的来源不同，这一点容易踩坑：
+
+| 运行方式                   | `.env` | `.env.local`   | 真实环境变量 |
+| -------------------------- | ------ | -------------- | ------------ |
+| `pnpm dev`（开发）         | ✅     | ✅（**优先**） | ✅（最高）   |
+| `node .output/...`（生产） | ✅     | ❌ **不读**    | ✅（最高）   |
+| Docker Compose             | ✅     | ❌ 不进镜像    | ✅           |
+
+规则：
+
+1. **真实环境变量优先级最高**，永远不会被文件覆盖——所以容器里的配置不会被误改。
+2. **开发模式**读 `.env` 和 `.env.local`，后者覆盖前者（符合「本地个人配置」的惯例）。
+3. **生产模式只读 `.env`**，不读 `.env.local`——避免开发者的个人配置意外影响线上。
+4. `.env.local` 已被 `.gitignore` 和 `.dockerignore` 排除，**不会提交、也不会进镜像**。
+
+> 服务器启动时会在日志里打印从哪个文件加载了哪些配置项（**只打键名，不打印值**），
+> 方便确认配置是否生效。例如：
+>
+> ```text
+> [framefolio] Loaded 1 setting(s) from .env, .env.local: FRAMEFOLIO_ADMIN_PASSWORD
+> ```
+
+> 命令行同步（`pnpm gallery:sync`）是独立进程，同样会读取这些文件。
 
 ### 从源码构建 Docker 镜像
 

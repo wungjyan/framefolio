@@ -110,10 +110,15 @@ pnpm gallery:sync
 pnpm dev
 ```
 
-**To use the admin area, start with the password set.** Without it, `/admin` shows "admin not enabled" instead of a login form:
+**To use the admin area, set the password.** You can pass it on the command line, or put it in a file:
 
 ```bash
 FRAMEFOLIO_ADMIN_PASSWORD=your-password pnpm dev
+```
+
+```env
+# .env.local — personal settings, ignored by git
+FRAMEFOLIO_ADMIN_PASSWORD=your-password
 ```
 
 > The command-line sync (`pnpm gallery:sync`) does **not** need the admin password; it is independent of the admin area.
@@ -121,10 +126,35 @@ FRAMEFOLIO_ADMIN_PASSWORD=your-password pnpm dev
 For a production process:
 
 ```bash
-FRAMEFOLIO_ADMIN_PASSWORD=your-password NITRO_HOST=0.0.0.0 NITRO_PORT=3123 node .output/server/index.mjs
+pnpm build
+FRAMEFOLIO_ADMIN_PASSWORD=your-password NITRO_HOST=0.0.0.0 NITRO_PORT=3123 \
+  node .output/server/index.mjs
 ```
 
-(You can also put the variables in `.env`, which Nuxt reads automatically.)
+### How configuration files are loaded
+
+The three ways to run the app read configuration from different places, which is an easy trap:
+
+| How you run it                  | `.env` | `.env.local`        | Real environment variables |
+| ------------------------------- | ------ | ------------------- | -------------------------- |
+| `pnpm dev` (development)        | ✅     | ✅ (**wins**)       | ✅ (highest)               |
+| `node .output/...` (production) | ✅     | ❌ **not read**     | ✅ (highest)               |
+| Docker Compose                  | ✅     | ❌ not in the image | ✅                         |
+
+The rules:
+
+1. **A real environment variable always wins** over any file, so container settings cannot be changed by a stray file.
+2. **Development** reads `.env` and `.env.local`, with the latter overriding — the usual "personal local overrides" convention.
+3. **Production reads only `.env`**, never `.env.local`, so a developer's personal file cannot affect a live deployment.
+4. `.env.local` is excluded by both `.gitignore` and `.dockerignore`: it is neither committed nor copied into the image.
+
+> On startup the server logs which settings it loaded and from which file — **key names only, never values** — so you can confirm configuration took effect:
+>
+> ```text
+> [framefolio] Loaded 1 setting(s) from .env, .env.local: FRAMEFOLIO_ADMIN_PASSWORD
+> ```
+
+> The command-line sync (`pnpm gallery:sync`) is a separate process and reads the same files.
 
 ### Option 3: Build a Docker image from source
 

@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url'
 
+import { loadEnvFiles } from '../shared/node/env-files'
 import { SyncLockError, withSyncLock } from '../shared/node/gallery-lock'
 import {
   resolveGalleryPaths,
@@ -166,6 +167,12 @@ function reportResult(
 const entryPath = process.argv[1]
 
 if (entryPath && import.meta.url === pathToFileURL(entryPath).href) {
+  // This runs as a standalone process, so nothing has loaded the .env files for
+  // us — unlike the web server, which has a Nitro plugin for that. Without this,
+  // object-storage settings kept in .env files would be ignored by the CLI while
+  // working from the web UI, which would be a confusing difference.
+  loadEnvFiles({ filenames: ['.env', '.env.local'] })
+
   runSyncCli({ jsonl: process.argv.includes('--jsonl') })
     .then(exitCode => {
       if (exitCode !== 0) {
