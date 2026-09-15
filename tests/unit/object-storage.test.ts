@@ -1,8 +1,16 @@
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it
+} from 'vitest'
 
 import {
   checkConnection,
@@ -48,6 +56,12 @@ beforeEach(async () => {
     secretAccessKey: 'test-secret-key',
     forcePathStyle: true
   }
+})
+
+// Without this the suite leaks one temp directory per test, which piles up in
+// the system temp area across runs.
+afterEach(async () => {
+  await rm(root, { recursive: true, force: true })
 })
 
 describe('object storage client', () => {
