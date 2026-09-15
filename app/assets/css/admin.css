@@ -113,11 +113,20 @@
 }
 
 .admin-link {
+  /* Both an <a> and a <button> use this class. An <a> is inline by default, so
+     it needs `inline-flex` to centre its label the way a <button> already does
+     — otherwise its text sits at the top of the 44px box and the two controls
+     look misaligned. `text-decoration: none` removes the underline an anchor
+     gets by default, so both read as the same kind of control. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 2.75rem;
   padding: 0 0.5rem;
   font: inherit;
   font-size: 0.8125rem;
   color: var(--gallery-muted);
+  text-decoration: none;
   cursor: pointer;
   background: transparent;
   border: 0;

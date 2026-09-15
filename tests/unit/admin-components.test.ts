@@ -92,6 +92,26 @@ describe('AdminLogin', () => {
   })
 })
 
+describe('shared admin link styling', () => {
+  it('centres its label and drops the underline for both <a> and <button>', async () => {
+    // `.admin-link` styles an <a> in the header and a <button> in the uploader.
+    // An <a> is inline by default, so without an explicit `display` its text
+    // sits at the top of the box and it keeps its underline — which made the
+    // header's two controls look misaligned. This guards the declarations that
+    // fix that, since a CSS-only fix has no runtime assertion.
+    const { readFile } = await import('node:fs/promises')
+    const css = await readFile('app/assets/css/admin.css', 'utf8')
+    const block = /\.admin-link \{([^}]*)\}/.exec(css)?.[1] ?? ''
+
+    expect(block).toMatch(/display:\s*inline-flex/)
+    expect(block).toMatch(/align-items:\s*center/)
+    expect(block).toMatch(/justify-content:\s*center/)
+    expect(block).toMatch(/text-decoration:\s*none/)
+    // The mobile tap-target requirement applies to these controls too.
+    expect(block).toMatch(/min-height:\s*2\.75rem/)
+  })
+})
+
 describe('AdminLogin disabled state', () => {
   it('explains a 404 as "admin not configured" rather than a bad password', async () => {
     // A 404 means the whole admin feature is switched off. Mapping it to a
