@@ -17,9 +17,9 @@ const temporaryDirectories: string[] = []
 
 afterEach(async () => {
   await Promise.all(
-    temporaryDirectories.splice(0).map(directory =>
-      rm(directory, { recursive: true, force: true })
-    )
+    temporaryDirectories
+      .splice(0)
+      .map(directory => rm(directory, { recursive: true, force: true }))
   )
 })
 
@@ -81,7 +81,9 @@ describe('remote publishing during sync', () => {
     expect(remote.uploads.some(name => name.endsWith('-thumbnail.webp'))).toBe(
       true
     )
-    expect(remote.uploads.some(name => name.endsWith('-preview.webp'))).toBe(true)
+    expect(remote.uploads.some(name => name.endsWith('-preview.webp'))).toBe(
+      true
+    )
 
     const photo = result.index.photos[0]
     expect(photo?.remote).toMatchObject({

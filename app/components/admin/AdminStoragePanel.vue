@@ -57,10 +57,7 @@ const completeness = computed(() => {
         </span>
       </label>
 
-      <label
-        class="admin-storage__option"
-        :data-disabled="!canUseRemote"
-      >
+      <label class="admin-storage__option" :data-disabled="!canUseRemote">
         <input
           type="radio"
           name="storage-source"
@@ -104,7 +101,10 @@ const completeness = computed(() => {
       </template>
     </p>
 
-    <p v-if="status && !status.connected && status.configured" class="admin-notice admin-notice--warning">
+    <p
+      v-if="status && !status.connected && status.configured"
+      class="admin-notice admin-notice--warning"
+    >
       无法连接对象存储：{{ status.message }}
     </p>
   </div>

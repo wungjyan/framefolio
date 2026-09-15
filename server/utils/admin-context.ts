@@ -1,6 +1,9 @@
 import type { H3Event } from 'h3'
 
-import { resolveGalleryPaths, type GalleryPaths } from '../../shared/node/gallery-paths'
+import {
+  resolveGalleryPaths,
+  type GalleryPaths
+} from '../../shared/node/gallery-paths'
 import { resolveProjectRoot } from '../../shared/node/sync-runner'
 import { resolveAdminConfig, type AdminConfig } from './admin-config'
 

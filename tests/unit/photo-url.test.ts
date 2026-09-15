@@ -9,9 +9,7 @@ import type { PhotoIndexItem } from '../../shared/types/photo'
 const ID = '0123456789abcdef'
 const REVISION = 'fedcba9876543210'
 
-function createPhoto(
-  remote?: PhotoIndexItem['remote']
-): PhotoIndexItem {
+function createPhoto(remote?: PhotoIndexItem['remote']): PhotoIndexItem {
   return {
     id: ID,
     filename: 'example.jpg',
@@ -141,7 +139,10 @@ describe('photo URL resolution', () => {
       revision: REVISION,
       uploadedAt: '2026-09-01T00:00:00.000Z'
     })
-    const context = { source: 'r2' as const, publicBaseUrl: 'https://img.example.com' }
+    const context = {
+      source: 'r2' as const,
+      publicBaseUrl: 'https://img.example.com'
+    }
 
     const publicPhoto = toPublicPhoto(photo, context)
 

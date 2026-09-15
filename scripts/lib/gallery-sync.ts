@@ -232,12 +232,7 @@ export async function runGallerySync(
         continue
       }
 
-      await removeRemoteDerivatives(
-        remote,
-        photo,
-        filename,
-        warnings
-      )
+      await removeRemoteDerivatives(remote, photo, filename, warnings)
     }
   }
 
@@ -432,14 +427,8 @@ async function processPhoto(
     const remoteState = remote
       ? await publishToRemote(
           remote,
-          [
-            outputFiles.thumbnail.filename,
-            outputFiles.preview.filename
-          ],
-          [
-            outputFiles.thumbnail.path,
-            outputFiles.preview.path
-          ],
+          [outputFiles.thumbnail.filename, outputFiles.preview.filename],
+          [outputFiles.thumbnail.path, outputFiles.preview.path],
           source,
           sourcePhoto.relativePath,
           warnings,
@@ -488,7 +477,10 @@ async function publishToRemote(
 ): Promise<PhotoRemoteState | undefined> {
   try {
     for (let index = 0; index < filenames.length; index += 1) {
-      await remote.upload(filenames[index] as string, filePaths[index] as string)
+      await remote.upload(
+        filenames[index] as string,
+        filePaths[index] as string
+      )
     }
 
     return {
@@ -860,11 +852,7 @@ function isLoadedGalleryIndex(value: unknown): value is LoadedGalleryIndex {
 }
 
 function isPhotoIndexItem(value: unknown): value is PhotoIndexItem {
-  if (
-    !isRecord(value) ||
-    !isRecord(value.source) ||
-    !isRecord(value.storage)
-  ) {
+  if (!isRecord(value) || !isRecord(value.source) || !isRecord(value.storage)) {
     return false
   }
 

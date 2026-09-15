@@ -41,8 +41,7 @@ export interface StoredObject {
 
 export const OBJECT_CONTENT_TYPE = 'image/webp'
 /** Matches the local media route so CDN and local caching behave the same. */
-export const OBJECT_CACHE_CONTROL =
-  'public, max-age=31536000, immutable'
+export const OBJECT_CACHE_CONTROL = 'public, max-age=31536000, immutable'
 
 export function createObjectStorageClient(
   config: ObjectStorageConfig
@@ -156,9 +155,7 @@ export async function listObjects(
       new ListObjectsV2Command({
         Bucket: config.bucket,
         ...(prefix ? { Prefix: `${prefix}/` } : {}),
-        ...(continuationToken
-          ? { ContinuationToken: continuationToken }
-          : {})
+        ...(continuationToken ? { ContinuationToken: continuationToken } : {})
       })
     )
 

@@ -152,9 +152,12 @@ export function buildAdminPhotos(
   return photos
 }
 
-export function summarizePending(
-  photos: AdminPhoto[]
-): { added: number; changed: number; pendingDelete: number; total: number } {
+export function summarizePending(photos: AdminPhoto[]): {
+  added: number
+  changed: number
+  pendingDelete: number
+  total: number
+} {
   const count = (state: AdminPhotoState): number =>
     photos.filter(photo => photo.state === state).length
 

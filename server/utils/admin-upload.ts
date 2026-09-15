@@ -108,17 +108,20 @@ export function sniffFormat(bytes: Uint8Array): ImageFormat | undefined {
   }
 
   // RIFF....WEBP
-  if (
-    matchesAscii(bytes, 0, 'RIFF') &&
-    matchesAscii(bytes, 8, 'WEBP')
-  ) {
+  if (matchesAscii(bytes, 0, 'RIFF') && matchesAscii(bytes, 8, 'WEBP')) {
     return 'webp'
   }
 
   // TIFF: II*\0 (little endian) or MM\0* (big endian)
   if (
-    (bytes[0] === 0x49 && bytes[1] === 0x49 && bytes[2] === 0x2a && bytes[3] === 0x00) ||
-    (bytes[0] === 0x4d && bytes[1] === 0x4d && bytes[2] === 0x00 && bytes[3] === 0x2a)
+    (bytes[0] === 0x49 &&
+      bytes[1] === 0x49 &&
+      bytes[2] === 0x2a &&
+      bytes[3] === 0x00) ||
+    (bytes[0] === 0x4d &&
+      bytes[1] === 0x4d &&
+      bytes[2] === 0x00 &&
+      bytes[3] === 0x2a)
   ) {
     return 'tiff'
   }
@@ -174,9 +177,7 @@ export function sanitizeUploadFilename(filename: string): string | undefined {
   // Take only the final segment, in case a full path was supplied (some
   // browsers send a path for directory uploads).
   const base = filename.split(/[\\/]/).pop() ?? ''
-  const cleaned = stripControlCharacters(base)
-    .replace(/^\.+/, '')
-    .trim()
+  const cleaned = stripControlCharacters(base).replace(/^\.+/, '').trim()
 
   if (cleaned.length === 0 || cleaned.length > 255) {
     return undefined

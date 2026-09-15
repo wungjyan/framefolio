@@ -171,9 +171,7 @@ const errorCount = computed(
       role="status"
     >
       已上传
-      {{
-        doneCount
-      }}
+      {{ doneCount }}
       张。<strong>这些照片尚未出现在网站上</strong>，请点击「立即同步」后才会展示。
     </p>
 

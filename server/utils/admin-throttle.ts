@@ -48,10 +48,7 @@ export function recordLoginFailure(
     // Exponential backoff, capped, so sustained guessing gets progressively
     // more expensive without locking the owner out indefinitely.
     const overage = attempt.failures - MAX_FAILURES
-    const lockout = Math.min(
-      BASE_LOCKOUT_MS * 2 ** overage,
-      MAX_LOCKOUT_MS
-    )
+    const lockout = Math.min(BASE_LOCKOUT_MS * 2 ** overage, MAX_LOCKOUT_MS)
 
     attempt.blockedUntil = now + lockout
   }

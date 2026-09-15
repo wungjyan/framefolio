@@ -30,7 +30,9 @@ export default defineEventHandler(async event => {
 
   const { paths, config } = getAdminContext(event)
   const rawName = getRouterParam(event, 'filename')
-  const filename = rawName ? sanitizeUploadFilename(decodeURIComponent(rawName)) : undefined
+  const filename = rawName
+    ? sanitizeUploadFilename(decodeURIComponent(rawName))
+    : undefined
 
   if (!filename) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid filename.' })
@@ -50,7 +52,10 @@ export default defineEventHandler(async event => {
     const stream = getRequestWebStream(event)
 
     if (!stream) {
-      throw createError({ statusCode: 400, statusMessage: 'Missing request body.' })
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Missing request body.'
+      })
     }
 
     await writeStreamWithLimit(stream, stagingPath, config.maxUploadBytes)
@@ -105,29 +110,26 @@ async function writeStreamWithLimit(
   const reader = stream.getReader()
 
   try {
-    await pipeline(
-      async function* () {
-        while (true) {
-          const { done, value } = await reader.read()
+    await pipeline(async function* () {
+      while (true) {
+        const { done, value } = await reader.read()
 
-          if (done) {
-            return
-          }
-
-          total += value.byteLength
-
-          if (total > maxBytes) {
-            throw createError({
-              statusCode: 413,
-              statusMessage: `Upload exceeds the ${Math.floor(maxBytes / (1024 * 1024))} MB limit.`
-            })
-          }
-
-          yield value
+        if (done) {
+          return
         }
-      },
-      fileStream
-    )
+
+        total += value.byteLength
+
+        if (total > maxBytes) {
+          throw createError({
+            statusCode: 413,
+            statusMessage: `Upload exceeds the ${Math.floor(maxBytes / (1024 * 1024))} MB limit.`
+          })
+        }
+
+        yield value
+      }
+    }, fileStream)
   } catch (error: unknown) {
     reader.cancel().catch(() => {})
     throw error

@@ -11,7 +11,11 @@
  * `list-type=2`, `prefix`, `continuation-token`, and `max-keys` parameters).
  * Objects live in memory; this is a test fixture, not a storage product.
  */
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse
+} from 'node:http'
 
 export interface FakeS3Options {
   /** Require this exact Authorization header prefix, to assert signing ran. */
@@ -23,7 +27,10 @@ export interface FakeS3Options {
 export interface FakeS3Server {
   endpoint: string
   port: number
-  objects: Map<string, { body: Buffer; contentType?: string; cacheControl?: string }>
+  objects: Map<
+    string,
+    { body: Buffer; contentType?: string; cacheControl?: string }
+  >
   /** Requests seen, for asserting the client sent what we expect. */
   requests: { method: string; path: string; query: Record<string, string> }[]
   /** Set to make every request return 500. */
@@ -38,8 +45,11 @@ export async function startFakeS3(
     string,
     { body: Buffer; contentType?: string; cacheControl?: string }
   >()
-  const requests: { method: string; path: string; query: Record<string, string> }[] =
-    []
+  const requests: {
+    method: string
+    path: string
+    query: Record<string, string>
+  }[] = []
   const pageSize = options.pageSize ?? 1000
   // Declared before the handler so the handler can consult `failAll`.
   const state = { failAll: false }

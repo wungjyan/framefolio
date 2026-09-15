@@ -39,7 +39,11 @@ async function writePhoto(
 
   return {
     ...source,
-    revision: createPhotoRevision(relativePath, source, GALLERY_PIPELINE_VERSION)
+    revision: createPhotoRevision(
+      relativePath,
+      source,
+      GALLERY_PIPELINE_VERSION
+    )
   }
 }
 
@@ -124,7 +128,11 @@ describe('admin photo states', () => {
   it('marks a published file whose bytes changed as changed', async () => {
     const source = await writePhoto('edit.jpg', 'first')
     const entries = await scanOriginalFiles(root)
-    const stale = { ...source, size: source.size + 1, mtimeMs: source.mtimeMs + 1 }
+    const stale = {
+      ...source,
+      size: source.size + 1,
+      mtimeMs: source.mtimeMs + 1
+    }
     const index = createIndex([createIndexPhoto('edit.jpg', stale)])
 
     const photos = buildAdminPhotos(index, entries)
@@ -162,7 +170,10 @@ describe('admin photo states', () => {
   it('reports the uploader filename for pending photos', async () => {
     await writePhoto('brand-new.jpg')
 
-    const photos = buildAdminPhotos(createIndex([]), await scanOriginalFiles(root))
+    const photos = buildAdminPhotos(
+      createIndex([]),
+      await scanOriginalFiles(root)
+    )
 
     // Never-published photos have no derivatives yet, so storage keys are blank
     // rather than pointing at files that do not exist.
@@ -218,7 +229,10 @@ describe('admin photo states', () => {
     await writePhoto('photo10.jpg')
     await writePhoto('photo2.jpg')
 
-    const photos = buildAdminPhotos(createIndex([]), await scanOriginalFiles(root))
+    const photos = buildAdminPhotos(
+      createIndex([]),
+      await scanOriginalFiles(root)
+    )
 
     expect(photos.map(photo => photo.filename)).toEqual([
       'photo2.jpg',

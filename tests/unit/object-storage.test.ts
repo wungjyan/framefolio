@@ -105,7 +105,9 @@ describe('object storage client', () => {
     expect(server.objects.has('a.webp')).toBe(false)
 
     // Idempotent: deleting again must not throw, because sync retries cleanup.
-    await expect(deleteObject(client, config, 'a.webp')).resolves.toBeUndefined()
+    await expect(
+      deleteObject(client, config, 'a.webp')
+    ).resolves.toBeUndefined()
   })
 
   it('applies the configured key prefix to uploads', async () => {

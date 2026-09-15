@@ -22,8 +22,12 @@ interface SessionPayload {
  * This keeps the comparison constant-time even when the lengths differ.
  */
 export function safeEqual(left: string, right: string): boolean {
-  const leftHash = createHmac('sha256', 'framefolio-compare').update(left).digest()
-  const rightHash = createHmac('sha256', 'framefolio-compare').update(right).digest()
+  const leftHash = createHmac('sha256', 'framefolio-compare')
+    .update(left)
+    .digest()
+  const rightHash = createHmac('sha256', 'framefolio-compare')
+    .update(right)
+    .digest()
 
   return timingSafeEqual(leftHash, rightHash)
 }

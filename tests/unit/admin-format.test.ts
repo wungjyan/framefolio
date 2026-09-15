@@ -51,7 +51,9 @@ describe('formatRelative', () => {
   })
 
   it('describes minutes and hours', () => {
-    expect(formatRelative('2026-09-01T11:30:00.000Z', now)).toMatch(/minute|分钟/)
+    expect(formatRelative('2026-09-01T11:30:00.000Z', now)).toMatch(
+      /minute|分钟/
+    )
     expect(formatRelative('2026-09-01T09:00:00.000Z', now)).toMatch(/hour|小时/)
   })
 

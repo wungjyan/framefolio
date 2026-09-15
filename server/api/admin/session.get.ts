@@ -16,9 +16,7 @@ export default defineEventHandler(event => {
 
   const response: AdminSessionResponse = {
     authenticated,
-    ...(authenticated
-      ? { expiresInSeconds: config.sessionTtlSeconds }
-      : {})
+    ...(authenticated ? { expiresInSeconds: config.sessionTtlSeconds } : {})
   }
 
   return response
