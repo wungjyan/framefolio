@@ -2,12 +2,7 @@
 import type { GalleryPhoto, PhotosResponse } from '../../shared/types/photo'
 import PhotoViewer from '../components/viewer/PhotoViewer.vue'
 
-const {
-  isDesktop,
-  isMobile,
-  layout,
-  setLayout
-} = useGalleryLayout()
+const { isDesktop, isMobile, layout, setLayout } = useGalleryLayout()
 const { theme, toggleTheme } = useTheme()
 const selectedPhotoId = ref<string>()
 const viewerTrigger = shallowRef<HTMLButtonElement>()
@@ -81,7 +76,11 @@ async function closeViewer(): Promise<void> {
         role="status"
         aria-label="暂无照片"
       >
-        <svg class="gallery-state__empty" viewBox="0 0 32 24" aria-hidden="true">
+        <svg
+          class="gallery-state__empty"
+          viewBox="0 0 32 24"
+          aria-hidden="true"
+        >
           <rect x="0.5" y="0.5" width="31" height="23" />
         </svg>
       </section>
@@ -126,7 +125,8 @@ async function closeViewer(): Promise<void> {
 .gallery-main {
   width: min(100%, var(--gallery-content-width));
   min-height: 100vh;
-  padding: var(--gallery-header-height) var(--gallery-gutter) var(--gallery-space-lg);
+  padding: var(--gallery-header-height) var(--gallery-gutter)
+    var(--gallery-space-lg);
   margin: 0 auto;
 }
 
@@ -199,5 +199,4 @@ async function closeViewer(): Promise<void> {
     opacity: 1;
   }
 }
-
 </style>

@@ -2,7 +2,8 @@ import { resolve, sep } from 'node:path'
 
 import { GENERATED_IMAGE_FILENAME_PATTERN } from '../../shared/constants/gallery'
 
-export const GENERATED_IMAGE_CACHE_CONTROL = 'public, max-age=31536000, immutable'
+export const GENERATED_IMAGE_CACHE_CONTROL =
+  'public, max-age=31536000, immutable'
 export const GENERATED_IMAGE_CONTENT_TYPE = 'image/webp'
 
 export function resolveGeneratedImagePath(

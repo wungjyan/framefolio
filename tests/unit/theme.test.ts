@@ -61,11 +61,15 @@ describe('writeStoredGalleryTheme', () => {
 
   it('does not throw when storage is unavailable or blocked', () => {
     expect(() => writeStoredGalleryTheme(undefined, 'light')).not.toThrow()
-    expect(() => writeStoredGalleryTheme(createThrowingStorage(), 'light')).not.toThrow()
+    expect(() =>
+      writeStoredGalleryTheme(createThrowingStorage(), 'light')
+    ).not.toThrow()
   })
 })
 
-function createStorage(value: string | null): Pick<Storage, 'getItem' | 'setItem'> {
+function createStorage(
+  value: string | null
+): Pick<Storage, 'getItem' | 'setItem'> {
   const items = new Map<string, string>()
 
   if (value !== null) {

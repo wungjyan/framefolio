@@ -2,12 +2,15 @@
 import type { GalleryPhoto } from '../../../shared/types/photo'
 import { buildJustifiedRows } from '../../utils/gallery-layout'
 
-const props = withDefaults(defineProps<{
-  photos: GalleryPhoto[]
-  selectedPhotoId?: string
-}>(), {
-  selectedPhotoId: undefined
-})
+const props = withDefaults(
+  defineProps<{
+    photos: GalleryPhoto[]
+    selectedPhotoId?: string
+  }>(),
+  {
+    selectedPhotoId: undefined
+  }
+)
 
 const emit = defineEmits<{
   select: [photo: GalleryPhoto, trigger: HTMLButtonElement]
@@ -19,11 +22,13 @@ const gap = 14
 let observer: ResizeObserver | undefined
 let resizeFrame: number | undefined
 
-const rows = computed(() => buildJustifiedRows(props.photos, {
-  containerWidth: containerWidth.value,
-  gap,
-  targetRowHeight: containerWidth.value >= 1200 ? 280 : 230
-}))
+const rows = computed(() =>
+  buildJustifiedRows(props.photos, {
+    containerWidth: containerWidth.value,
+    gap,
+    targetRowHeight: containerWidth.value >= 1200 ? 280 : 230
+  })
+)
 
 onMounted(() => {
   observer = new ResizeObserver(([entry]) => {

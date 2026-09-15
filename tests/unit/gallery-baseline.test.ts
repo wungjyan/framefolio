@@ -25,10 +25,12 @@ const temporaryDirectories: string[] = []
 
 afterEach(async () => {
   await Promise.all(
-    temporaryDirectories.splice(0).map(directory => rm(directory, {
-      recursive: true,
-      force: true
-    }))
+    temporaryDirectories.splice(0).map(directory =>
+      rm(directory, {
+        recursive: true,
+        force: true
+      })
+    )
   )
 })
 
@@ -42,7 +44,10 @@ describe('gallery baseline', () => {
       fit: 'inside',
       withoutEnlargement: true
     })
-    expect(IMAGE_VARIANTS.thumbnail).toMatchObject({ maxEdge: 960, quality: 82 })
+    expect(IMAGE_VARIANTS.thumbnail).toMatchObject({
+      maxEdge: 960,
+      quality: 82
+    })
     expect(IMAGE_VARIANTS.preview).toMatchObject({ maxEdge: 2560, quality: 88 })
   })
 

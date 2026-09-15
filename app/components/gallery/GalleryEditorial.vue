@@ -2,12 +2,15 @@
 import type { GalleryPhoto } from '../../../shared/types/photo'
 import { buildEditorialRows } from '../../utils/gallery-layout'
 
-const props = withDefaults(defineProps<{
-  photos: GalleryPhoto[]
-  selectedPhotoId?: string
-}>(), {
-  selectedPhotoId: undefined
-})
+const props = withDefaults(
+  defineProps<{
+    photos: GalleryPhoto[]
+    selectedPhotoId?: string
+  }>(),
+  {
+    selectedPhotoId: undefined
+  }
+)
 
 const emit = defineEmits<{
   select: [photo: GalleryPhoto, trigger: HTMLButtonElement]
@@ -18,10 +21,7 @@ const itemsPerRow = ref(3)
 let observer: ResizeObserver | undefined
 let resizeFrame: number | undefined
 
-const rows = computed(() => buildEditorialRows(
-  props.photos,
-  itemsPerRow.value
-))
+const rows = computed(() => buildEditorialRows(props.photos, itemsPerRow.value))
 
 onMounted(() => {
   observer = new ResizeObserver(([entry]) => {
@@ -105,7 +105,7 @@ function getItemsPerRow(containerWidth: number): number {
   gap: var(--editorial-column-gap);
 }
 
-.editorial-row[data-full="true"] {
+.editorial-row[data-full='true'] {
   justify-content: space-between;
 }
 
@@ -114,28 +114,28 @@ function getItemsPerRow(containerWidth: number): number {
   min-width: 0;
 }
 
-.editorial-item[data-orientation="landscape"] {
+.editorial-item[data-orientation='landscape'] {
   --editorial-item-width: 48%;
 }
 
-.editorial-item[data-orientation="square"] {
+.editorial-item[data-orientation='square'] {
   --editorial-item-width: 43%;
 }
 
-.editorial-item[data-orientation="portrait"] {
+.editorial-item[data-orientation='portrait'] {
   --editorial-item-width: 38%;
 }
 
 @container editorial (min-width: 56rem) {
-  .editorial-item[data-orientation="landscape"] {
+  .editorial-item[data-orientation='landscape'] {
     --editorial-item-width: min(34cqw, 30rem);
   }
 
-  .editorial-item[data-orientation="square"] {
+  .editorial-item[data-orientation='square'] {
     --editorial-item-width: min(30cqw, 25rem);
   }
 
-  .editorial-item[data-orientation="portrait"] {
+  .editorial-item[data-orientation='portrait'] {
     --editorial-item-width: min(27cqw, 22rem);
   }
 }

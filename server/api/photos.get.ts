@@ -6,7 +6,7 @@ import {
   readPublicGalleryPhotos
 } from '../utils/gallery-index'
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   const config = useRuntimeConfig(event)
   const indexPath = join(config.galleryDataDir, GALLERY_INDEX_FILENAME)
 

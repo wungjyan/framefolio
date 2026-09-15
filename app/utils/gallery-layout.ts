@@ -89,57 +89,57 @@ export function buildJustifiedRows(
 ): JustifiedRow[] {
   const { containerWidth, targetRowHeight, gap } = options
 
-  if (photos.length === 0
-    || !Number.isFinite(containerWidth)
-    || !Number.isFinite(targetRowHeight)
-    || !Number.isFinite(gap)
-    || containerWidth <= 0
-    || targetRowHeight <= 0
-    || gap < 0) {
+  if (
+    photos.length === 0 ||
+    !Number.isFinite(containerWidth) ||
+    !Number.isFinite(targetRowHeight) ||
+    !Number.isFinite(gap) ||
+    containerWidth <= 0 ||
+    targetRowHeight <= 0 ||
+    gap < 0
+  ) {
     return []
   }
 
   const rows: JustifiedRow[] = []
-  let rowItems: Array<{ photo: GalleryPhoto, sourceIndex: number }> = []
+  let rowItems: Array<{ photo: GalleryPhoto; sourceIndex: number }> = []
   let rowRatio = 0
 
   photos.forEach((photo, sourceIndex) => {
     rowItems.push({ photo, sourceIndex })
     rowRatio += photo.width / photo.height
 
-    const projectedWidth = rowRatio * targetRowHeight
-      + gap * Math.max(0, rowItems.length - 1)
+    const projectedWidth =
+      rowRatio * targetRowHeight + gap * Math.max(0, rowItems.length - 1)
     const hasMorePhotos = sourceIndex < photos.length - 1
 
     if (projectedWidth >= containerWidth && hasMorePhotos) {
-      rows.push(createJustifiedRow(
-        rowItems,
-        rowRatio,
-        containerWidth,
-        gap,
-        false
-      ))
+      rows.push(
+        createJustifiedRow(rowItems, rowRatio, containerWidth, gap, false)
+      )
       rowItems = []
       rowRatio = 0
     }
   })
 
   if (rowItems.length > 0) {
-    rows.push(createJustifiedRow(
-      rowItems,
-      rowRatio,
-      containerWidth,
-      gap,
-      true,
-      targetRowHeight
-    ))
+    rows.push(
+      createJustifiedRow(
+        rowItems,
+        rowRatio,
+        containerWidth,
+        gap,
+        true,
+        targetRowHeight
+      )
+    )
   }
 
   return rows
 }
 
 function createJustifiedRow(
-  entries: Array<{ photo: GalleryPhoto, sourceIndex: number }>,
+  entries: Array<{ photo: GalleryPhoto; sourceIndex: number }>,
   totalRatio: number,
   containerWidth: number,
   gap: number,
@@ -148,9 +148,10 @@ function createJustifiedRow(
 ): JustifiedRow {
   const availableWidth = containerWidth - gap * Math.max(0, entries.length - 1)
   const fillHeight = availableWidth / totalRatio
-  const height = isLast && targetRowHeight !== undefined
-    ? Math.min(targetRowHeight, fillHeight)
-    : fillHeight
+  const height =
+    isLast && targetRowHeight !== undefined
+      ? Math.min(targetRowHeight, fillHeight)
+      : fillHeight
 
   return {
     id: entries.map(entry => entry.photo.id).join('-'),

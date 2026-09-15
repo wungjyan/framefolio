@@ -9,10 +9,13 @@ import {
   resolveGeneratedImagePath
 } from '../../utils/gallery-media'
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   const filename = getRouterParam(event, 'filename')
   const config = useRuntimeConfig(event)
-  const generatedDirectory = join(config.galleryDataDir, GENERATED_DIRECTORY_NAME)
+  const generatedDirectory = join(
+    config.galleryDataDir,
+    GENERATED_DIRECTORY_NAME
+  )
   const filePath = filename
     ? resolveGeneratedImagePath(generatedDirectory, filename)
     : undefined
@@ -50,8 +53,10 @@ export default defineEventHandler(async (event) => {
 })
 
 function isErrorWithCode(error: unknown, code: string): boolean {
-  return typeof error === 'object'
-    && error !== null
-    && 'code' in error
-    && error.code === code
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === code
+  )
 }

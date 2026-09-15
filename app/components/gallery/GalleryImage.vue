@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import type { GalleryPhoto } from '../../../shared/types/photo'
 
-const props = withDefaults(defineProps<{
-  photo: GalleryPhoto
-  priority?: boolean
-  selected?: boolean
-}>(), {
-  priority: false,
-  selected: false
-})
+const props = withDefaults(
+  defineProps<{
+    photo: GalleryPhoto
+    priority?: boolean
+    selected?: boolean
+  }>(),
+  {
+    priority: false,
+    selected: false
+  }
+)
 
 const emit = defineEmits<{
   select: [photo: GalleryPhoto, trigger: HTMLButtonElement]
@@ -43,7 +46,7 @@ function selectPhoto(event: MouseEvent): void {
       decoding="async"
       @load="loadState = 'loaded'"
       @error="loadState = 'error'"
-    >
+    />
   </button>
 </template>
 
@@ -66,7 +69,7 @@ function selectPhoto(event: MouseEvent): void {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  content: "";
+  content: '';
   background: var(--gallery-surface-active);
   opacity: 0;
   transition: opacity var(--gallery-motion-fast) var(--gallery-ease);
@@ -88,7 +91,7 @@ function selectPhoto(event: MouseEvent): void {
   opacity: 1;
 }
 
-.gallery-image[data-state="error"] .gallery-image__media {
+.gallery-image[data-state='error'] .gallery-image__media {
   visibility: hidden;
 }
 </style>

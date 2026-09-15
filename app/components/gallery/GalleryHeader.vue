@@ -1,153 +1,149 @@
 <script setup lang="ts">
-import type { GalleryLayout } from "../../utils/gallery-layout";
-import type { GalleryTheme } from "../../utils/theme";
+import type { GalleryLayout } from '../../utils/gallery-layout'
+import type { GalleryTheme } from '../../utils/theme'
 import {
   createHeaderScrollTracker,
   resetHeaderScrollTracker,
-  updateHeaderVisibility,
-} from "../../utils/header-scroll";
+  updateHeaderVisibility
+} from '../../utils/header-scroll'
 
 const props = withDefaults(
   defineProps<{
-    layout: GalleryLayout;
-    theme: GalleryTheme;
-    autoHide: boolean;
-    suspended?: boolean;
+    layout: GalleryLayout
+    theme: GalleryTheme
+    autoHide: boolean
+    suspended?: boolean
   }>(),
   {
-    suspended: false,
-  },
-);
+    suspended: false
+  }
+)
 
 const emit = defineEmits<{
-  selectLayout: [layout: GalleryLayout];
-  selectTheme: [theme: GalleryTheme];
-}>();
+  selectLayout: [layout: GalleryLayout]
+  selectTheme: [theme: GalleryTheme]
+}>()
 
-const hidden = ref(false);
+const hidden = ref(false)
 const targetLayout = computed<GalleryLayout>(() =>
-  props.layout === "editorial" ? "justified" : "editorial",
-);
+  props.layout === 'editorial' ? 'justified' : 'editorial'
+)
 const currentLayoutName = computed(() =>
-  props.layout === "editorial" ? "Editorial" : "Justified",
-);
+  props.layout === 'editorial' ? 'Editorial' : 'Justified'
+)
 const targetLayoutName = computed(() =>
-  targetLayout.value === "editorial" ? "Editorial" : "Justified",
-);
+  targetLayout.value === 'editorial' ? 'Editorial' : 'Justified'
+)
 const targetTheme = computed<GalleryTheme>(() =>
-  props.theme === "dark" ? "light" : "dark",
-);
+  props.theme === 'dark' ? 'light' : 'dark'
+)
 const currentThemeName = computed(() =>
-  props.theme === "dark" ? "深色主题" : "浅色主题",
-);
+  props.theme === 'dark' ? '深色主题' : '浅色主题'
+)
 const targetThemeName = computed(() =>
-  targetTheme.value === "dark" ? "深色主题" : "浅色主题",
-);
-const tracker = createHeaderScrollTracker();
+  targetTheme.value === 'dark' ? '深色主题' : '浅色主题'
+)
+const tracker = createHeaderScrollTracker()
 
-let scrollFrame: number | undefined;
-let resetFrame: number | undefined;
-let listening = false;
+let scrollFrame: number | undefined
+let resetFrame: number | undefined
+let listening = false
 
 onMounted(() => {
-  resetTracking();
-  syncScrollListener();
-});
+  resetTracking()
+  syncScrollListener()
+})
 
 watch(
   () => props.autoHide,
   () => {
-    syncScrollListener();
+    syncScrollListener()
 
     if (!props.autoHide) {
-      hidden.value = false;
+      hidden.value = false
     }
 
-    scheduleTrackingReset();
-  },
-);
+    scheduleTrackingReset()
+  }
+)
 
 watch(
   () => props.suspended,
   () => {
-    scheduleTrackingReset();
-  },
-);
+    scheduleTrackingReset()
+  }
+)
 
 watch(
   () => props.layout,
   async () => {
-    hidden.value = false;
-    await nextTick();
-    scheduleTrackingReset();
-  },
-);
+    hidden.value = false
+    await nextTick()
+    scheduleTrackingReset()
+  }
+)
 
 onBeforeUnmount(() => {
-  window.cancelAnimationFrame(scrollFrame ?? 0);
-  window.cancelAnimationFrame(resetFrame ?? 0);
-  stopScrollListener();
-});
+  window.cancelAnimationFrame(scrollFrame ?? 0)
+  window.cancelAnimationFrame(resetFrame ?? 0)
+  stopScrollListener()
+})
 
 function selectTargetLayout(): void {
-  hidden.value = false;
-  emit("selectLayout", targetLayout.value);
+  hidden.value = false
+  emit('selectLayout', targetLayout.value)
 }
 
 function selectTargetTheme(): void {
-  hidden.value = false;
-  emit("selectTheme", targetTheme.value);
+  hidden.value = false
+  emit('selectTheme', targetTheme.value)
 }
 
 function syncScrollListener(): void {
   if (props.autoHide && !listening) {
-    window.addEventListener("scroll", scheduleScrollUpdate, { passive: true });
-    listening = true;
+    window.addEventListener('scroll', scheduleScrollUpdate, { passive: true })
+    listening = true
   } else if (!props.autoHide) {
-    stopScrollListener();
+    stopScrollListener()
   }
 }
 
 function stopScrollListener(): void {
   if (!listening) {
-    return;
+    return
   }
 
-  window.removeEventListener("scroll", scheduleScrollUpdate);
-  listening = false;
+  window.removeEventListener('scroll', scheduleScrollUpdate)
+  listening = false
 }
 
 function scheduleScrollUpdate(): void {
   if (scrollFrame !== undefined) {
-    return;
+    return
   }
 
   scrollFrame = window.requestAnimationFrame(() => {
-    scrollFrame = undefined;
+    scrollFrame = undefined
 
     if (!props.autoHide || props.suspended) {
-      resetTracking();
-      return;
+      resetTracking()
+      return
     }
 
-    hidden.value = updateHeaderVisibility(
-      tracker,
-      window.scrollY,
-      hidden.value,
-    );
-  });
+    hidden.value = updateHeaderVisibility(tracker, window.scrollY, hidden.value)
+  })
 }
 
 function scheduleTrackingReset(): void {
-  window.cancelAnimationFrame(resetFrame ?? 0);
+  window.cancelAnimationFrame(resetFrame ?? 0)
   resetFrame = window.requestAnimationFrame(() => {
-    resetFrame = undefined;
-    resetTracking();
-  });
+    resetFrame = undefined
+    resetTracking()
+  })
 }
 
 function resetTracking(): void {
-  resetHeaderScrollTracker(tracker, window.scrollY);
+  resetHeaderScrollTracker(tracker, window.scrollY)
 }
 </script>
 
@@ -173,7 +169,11 @@ function resetTracking(): void {
         :title="`当前：${currentLayoutName}（切换到 ${targetLayoutName}）`"
         @click="selectTargetLayout"
       >
-        <svg v-if="layout === 'editorial'" viewBox="0 0 24 24" aria-hidden="true">
+        <svg
+          v-if="layout === 'editorial'"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
           <rect width="7" height="9" x="3" y="3" rx="1" />
           <rect width="7" height="5" x="14" y="3" rx="1" />
           <rect width="7" height="9" x="14" y="12" rx="1" />
@@ -207,7 +207,9 @@ function resetTracking(): void {
           aria-hidden="true"
         >
           <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+          <path
+            d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"
+          />
         </svg>
       </button>
     </nav>
@@ -234,13 +236,13 @@ function resetTracking(): void {
     transform var(--gallery-motion-fast) var(--gallery-ease);
 }
 
-.gallery-header[data-hidden="true"] {
+.gallery-header[data-hidden='true'] {
   opacity: 0;
   transform: translate(-50%, -1rem);
 }
 
-.gallery-header[data-hidden="true"] .gallery-wordmark,
-.gallery-header[data-hidden="true"] .header-controls {
+.gallery-header[data-hidden='true'] .gallery-wordmark,
+.gallery-header[data-hidden='true'] .header-controls {
   pointer-events: none;
 }
 

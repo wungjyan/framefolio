@@ -2,12 +2,15 @@
 import type { GalleryPhoto } from '../../../shared/types/photo'
 import { buildPhotoMetadata } from '../../utils/photo-viewer'
 
-const props = withDefaults(defineProps<{
-  photos: GalleryPhoto[]
-  photoId?: string
-}>(), {
-  photoId: undefined
-})
+const props = withDefaults(
+  defineProps<{
+    photos: GalleryPhoto[]
+    photoId?: string
+  }>(),
+  {
+    photoId: undefined
+  }
+)
 
 const emit = defineEmits<{
   close: []
@@ -15,21 +18,21 @@ const emit = defineEmits<{
 }>()
 
 const dialog = ref<HTMLDialogElement>()
-const currentIndex = computed(() => (
+const currentIndex = computed(() =>
   props.photoId
     ? props.photos.findIndex(photo => photo.id === props.photoId)
     : -1
-))
+)
 const currentPhoto = computed(() => props.photos[currentIndex.value])
 const image = ref<HTMLImageElement>()
 const isImageLoading = ref(false)
-const metadata = computed(() => (
+const metadata = computed(() =>
   currentPhoto.value ? buildPhotoMetadata(currentPhoto.value) : {}
-))
+)
 const hasPrevious = computed(() => currentIndex.value > 0)
-const hasNext = computed(() => (
-  currentIndex.value >= 0 && currentIndex.value < props.photos.length - 1
-))
+const hasNext = computed(
+  () => currentIndex.value >= 0 && currentIndex.value < props.photos.length - 1
+)
 
 let previousOverflow = ''
 let scrollLocked = false
@@ -42,21 +45,29 @@ watch([() => props.photoId, currentPhoto], () => {
   syncDialog()
 })
 
-watch(currentPhoto, (photo) => {
-  isImageLoading.value = Boolean(photo)
+watch(
+  currentPhoto,
+  photo => {
+    isImageLoading.value = Boolean(photo)
 
-  if (photo) {
-    nextTick(() => {
-      if (currentPhoto.value?.id === photo.id && image.value?.complete) {
-        completeImageLoading()
-      }
-    })
-  }
-}, { flush: 'post' })
+    if (photo) {
+      nextTick(() => {
+        if (currentPhoto.value?.id === photo.id && image.value?.complete) {
+          completeImageLoading()
+        }
+      })
+    }
+  },
+  { flush: 'post' }
+)
 
-watch(currentIndex, () => {
-  preloadAdjacentPhotos()
-}, { immediate: true })
+watch(
+  currentIndex,
+  () => {
+    preloadAdjacentPhotos()
+  },
+  { immediate: true }
+)
 
 onBeforeUnmount(() => {
   unlockBackgroundScroll()
@@ -221,7 +232,7 @@ function unlockBackgroundScroll(): void {
             decoding="async"
             @load="completeImageLoading"
             @error="completeImageLoading"
-          >
+          />
         </div>
 
         <span

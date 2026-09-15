@@ -46,9 +46,11 @@ function formatCamera(make?: string, model?: string): string | undefined {
     return normalizedMake
   }
 
-  if (normalizedModel.toLocaleLowerCase().startsWith(
-    normalizedMake.toLocaleLowerCase()
-  )) {
+  if (
+    normalizedModel
+      .toLocaleLowerCase()
+      .startsWith(normalizedMake.toLocaleLowerCase())
+  ) {
     return normalizedModel
   }
 

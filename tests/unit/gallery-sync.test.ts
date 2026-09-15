@@ -19,17 +19,22 @@ import {
   normalizeShutterSpeed,
   runGallerySync
 } from '../../scripts/lib/gallery-sync'
-import { resolveGalleryPaths, type GalleryPaths } from '../../shared/node/gallery-paths'
+import {
+  resolveGalleryPaths,
+  type GalleryPaths
+} from '../../shared/node/gallery-paths'
 import type { GalleryIndex } from '../../shared/types/photo'
 
 const temporaryDirectories: string[] = []
 
 afterEach(async () => {
   await Promise.all(
-    temporaryDirectories.splice(0).map(directory => rm(directory, {
-      recursive: true,
-      force: true
-    }))
+    temporaryDirectories.splice(0).map(directory =>
+      rm(directory, {
+        recursive: true,
+        force: true
+      })
+    )
   )
 })
 
@@ -63,8 +68,12 @@ describe('gallery sync pipeline', () => {
 
     const generated = await generatedWebpFiles(paths)
     expect(generated).toHaveLength(2)
-    expect(generated.some(filename => filename.endsWith('-thumbnail.webp'))).toBe(true)
-    expect(generated.some(filename => filename.endsWith('-preview.webp'))).toBe(true)
+    expect(
+      generated.some(filename => filename.endsWith('-thumbnail.webp'))
+    ).toBe(true)
+    expect(generated.some(filename => filename.endsWith('-preview.webp'))).toBe(
+      true
+    )
 
     const second = await runGallerySync({ paths })
 
@@ -75,8 +84,9 @@ describe('gallery sync pipeline', () => {
       deleted: 0,
       failed: 0
     })
-    expect(second.index.photos[0]?.source.revision)
-      .toBe(first.index.photos[0]?.source.revision)
+    expect(second.index.photos[0]?.source.revision).toBe(
+      first.index.photos[0]?.source.revision
+    )
   })
 
   it('updates only a modified photo and removes its stale generated files', async () => {
@@ -92,15 +102,18 @@ describe('gallery sync pipeline', () => {
 
     expect(second.summary).toMatchObject({ updated: 1, skipped: 0, failed: 0 })
     expect(second.index.photos[0]).toMatchObject({ width: 900, height: 1200 })
-    expect(second.index.photos[0]?.source.revision)
-      .not.toBe(first.index.photos[0]?.source.revision)
+    expect(second.index.photos[0]?.source.revision).not.toBe(
+      first.index.photos[0]?.source.revision
+    )
 
     const currentGenerated = await generatedWebpFiles(paths)
     expect(currentGenerated).toHaveLength(2)
     expect(currentGenerated).not.toEqual(oldGenerated)
 
     for (const oldFile of oldGenerated) {
-      await expect(access(join(paths.generated, oldFile))).rejects.toMatchObject({
+      await expect(
+        access(join(paths.generated, oldFile))
+      ).rejects.toMatchObject({
         code: 'ENOENT'
       })
     }
@@ -139,7 +152,9 @@ describe('gallery sync pipeline', () => {
     expect(result.index.photos[0]).toMatchObject({ width: 20, height: 40 })
 
     const preview = result.index.photos[0]?.preview.split('/').at(-1)
-    const metadata = await sharp(join(paths.generated, preview as string)).metadata()
+    const metadata = await sharp(
+      join(paths.generated, preview as string)
+    ).metadata()
     expect(metadata).toMatchObject({ width: 20, height: 40 })
     expect(metadata.exif).toBeUndefined()
   })
@@ -153,7 +168,10 @@ describe('gallery sync pipeline', () => {
     const publishedPhoto = first.index.photos[0]
 
     await writeFile(sourcePath, 'not an image')
-    await writeFile(join(paths.originals, 'new-broken.jpg'), 'also not an image')
+    await writeFile(
+      join(paths.originals, 'new-broken.jpg'),
+      'also not an image'
+    )
 
     const failed = await runGallerySync({ paths })
 
@@ -166,9 +184,12 @@ describe('gallery sync pipeline', () => {
   it('changes revisions with the pipeline version while keeping IDs stable', () => {
     const source = { size: 123, mtimeMs: 456 }
 
-    expect(createPhotoId('nested\\photo.jpg')).toBe(createPhotoId('nested/photo.jpg'))
-    expect(createPhotoRevision('photo.jpg', source, 1))
-      .not.toBe(createPhotoRevision('photo.jpg', source, 2))
+    expect(createPhotoId('nested\\photo.jpg')).toBe(
+      createPhotoId('nested/photo.jpg')
+    )
+    expect(createPhotoRevision('photo.jpg', source, 1)).not.toBe(
+      createPhotoRevision('photo.jpg', source, 2)
+    )
   })
 
   it('recovers from a malformed index using originals as the source of truth', async () => {
@@ -213,7 +234,9 @@ async function createJpeg(
       channels: 3,
       background
     }
-  }).jpeg().toFile(outputPath)
+  })
+    .jpeg()
+    .toFile(outputPath)
 }
 
 async function generatedWebpFiles(paths: GalleryPaths): Promise<string[]> {

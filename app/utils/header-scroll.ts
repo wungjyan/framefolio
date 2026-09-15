@@ -55,9 +55,11 @@ export function updateHeaderVisibility(
 
   tracker.distance += Math.abs(delta)
 
-  if (direction === 'down'
-    && nextY >= HEADER_HIDE_START
-    && tracker.distance >= HEADER_HIDE_DISTANCE) {
+  if (
+    direction === 'down' &&
+    nextY >= HEADER_HIDE_START &&
+    tracker.distance >= HEADER_HIDE_DISTANCE
+  ) {
     tracker.distance = 0
     return true
   }

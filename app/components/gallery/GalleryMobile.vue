@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import type { GalleryPhoto } from '../../../shared/types/photo'
 
-withDefaults(defineProps<{
-  photos: GalleryPhoto[]
-  selectedPhotoId?: string
-}>(), {
-  selectedPhotoId: undefined
-})
+withDefaults(
+  defineProps<{
+    photos: GalleryPhoto[]
+    selectedPhotoId?: string
+  }>(),
+  {
+    selectedPhotoId: undefined
+  }
+)
 
 const emit = defineEmits<{
   select: [photo: GalleryPhoto, trigger: HTMLButtonElement]

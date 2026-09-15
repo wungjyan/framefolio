@@ -44,18 +44,20 @@ describe('gallery runtime index', () => {
     await mkdir(paths.data, { recursive: true })
     await writeFile(paths.index, JSON.stringify(createIndex(photo)))
 
-    await expect(readPublicGalleryPhotos(paths.index)).resolves.toEqual([{
-      id: photo.id,
-      filename: photo.filename,
-      thumbnail: photo.thumbnail,
-      preview: photo.preview,
-      width: photo.width,
-      height: photo.height,
-      takenAt: photo.takenAt,
-      cameraModel: photo.cameraModel,
-      focalLength: photo.focalLength,
-      focalLength35mm: photo.focalLength35mm
-    }])
+    await expect(readPublicGalleryPhotos(paths.index)).resolves.toEqual([
+      {
+        id: photo.id,
+        filename: photo.filename,
+        thumbnail: photo.thumbnail,
+        preview: photo.preview,
+        width: photo.width,
+        height: photo.height,
+        takenAt: photo.takenAt,
+        cameraModel: photo.cameraModel,
+        focalLength: photo.focalLength,
+        focalLength35mm: photo.focalLength35mm
+      }
+    ])
   })
 
   it('rejects malformed JSON and invalid index fields', async () => {
@@ -63,12 +65,16 @@ describe('gallery runtime index', () => {
 
     await mkdir(paths.data, { recursive: true })
     await writeFile(paths.index, '{')
-    await expect(readPublicGalleryPhotos(paths.index)).rejects.toBeInstanceOf(GalleryIndexError)
+    await expect(readPublicGalleryPhotos(paths.index)).rejects.toBeInstanceOf(
+      GalleryIndexError
+    )
 
     const invalidPhoto = createPhoto()
     invalidPhoto.thumbnail = '/media/../../originals/private.jpg'
     await writeFile(paths.index, JSON.stringify(createIndex(invalidPhoto)))
-    await expect(readPublicGalleryPhotos(paths.index)).rejects.toBeInstanceOf(GalleryIndexError)
+    await expect(readPublicGalleryPhotos(paths.index)).rejects.toBeInstanceOf(
+      GalleryIndexError
+    )
   })
 })
 
@@ -77,8 +83,9 @@ describe('gallery media path', () => {
     const generatedDirectory = fixturePath('generated')
     const filename = '0123456789abcdef-fedcba9876543210-preview.webp'
 
-    expect(resolveGeneratedImagePath(generatedDirectory, filename))
-      .toBe(join(generatedDirectory, filename))
+    expect(resolveGeneratedImagePath(generatedDirectory, filename)).toBe(
+      join(generatedDirectory, filename)
+    )
     expect(GENERATED_IMAGE_CONTENT_TYPE).toBe('image/webp')
     expect(GENERATED_IMAGE_CACHE_CONTROL).toContain('immutable')
     expect(GENERATED_IMAGE_CACHE_CONTROL).toContain('max-age=31536000')
@@ -89,8 +96,10 @@ describe('gallery media path', () => {
     '%2e%2e%2foriginals%2fprivate.jpg',
     '0123456789abcdef-fedcba9876543210-preview.jpg',
     'unfingerprinted-preview.webp'
-  ])('rejects an unsafe or invalid filename: %s', (filename) => {
-    expect(resolveGeneratedImagePath(fixturePath('generated'), filename)).toBeUndefined()
+  ])('rejects an unsafe or invalid filename: %s', filename => {
+    expect(
+      resolveGeneratedImagePath(fixturePath('generated'), filename)
+    ).toBeUndefined()
   })
 })
 
@@ -102,7 +111,9 @@ describe('runtime dependency boundary', () => {
       'server/utils/gallery-index.ts',
       'server/utils/gallery-media.ts'
     ]
-    const contents = await Promise.all(runtimeFiles.map(path => readFile(path, 'utf8')))
+    const contents = await Promise.all(
+      runtimeFiles.map(path => readFile(path, 'utf8'))
+    )
 
     expect(contents.join('\n')).not.toMatch(/from ['"](?:sharp|exifr)['"]/)
     expect(contents.join('\n')).not.toContain('originals')

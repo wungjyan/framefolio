@@ -7,17 +7,21 @@ import type { GalleryPhoto } from '../../shared/types/photo'
 
 describe('photo viewer metadata', () => {
   it('combines available EXIF fields without empty separators', () => {
-    expect(buildPhotoMetadata(createPhoto({
-      cameraMake: 'Sony',
-      cameraModel: 'Sony A7 IV',
-      lens: 'FE 35mm F1.4 GM',
-      focalLength: 35,
-      focalLength35mm: 35,
-      aperture: 2.8,
-      shutterSpeed: '1/250s',
-      iso: 100,
-      takenAt: '2026-08-20T12:00:00.000Z'
-    }))).toEqual({
+    expect(
+      buildPhotoMetadata(
+        createPhoto({
+          cameraMake: 'Sony',
+          cameraModel: 'Sony A7 IV',
+          lens: 'FE 35mm F1.4 GM',
+          focalLength: 35,
+          focalLength35mm: 35,
+          aperture: 2.8,
+          shutterSpeed: '1/250s',
+          iso: 100,
+          takenAt: '2026-08-20T12:00:00.000Z'
+        })
+      )
+    ).toEqual({
       equipment: 'Sony A7 IV · FE 35mm F1.4 GM',
       exposure: '35mm · f/2.8 · 1/250s · ISO 100',
       date: '2026.08.20'
@@ -25,10 +29,14 @@ describe('photo viewer metadata', () => {
   })
 
   it('omits missing groups and keeps partial EXIF meaningful', () => {
-    expect(buildPhotoMetadata(createPhoto({
-      cameraModel: 'Example Camera',
-      aperture: 4
-    }))).toEqual({
+    expect(
+      buildPhotoMetadata(
+        createPhoto({
+          cameraModel: 'Example Camera',
+          aperture: 4
+        })
+      )
+    ).toEqual({
       equipment: 'Example Camera',
       exposure: 'f/4'
     })
@@ -37,25 +45,41 @@ describe('photo viewer metadata', () => {
   })
 
   it('prefers the 35mm-equivalent focal length and falls back to physical', () => {
-    expect(buildPhotoMetadata(createPhoto({
-      focalLength: 2.32,
-      focalLength35mm: 25
-    })).exposure).toBe('25mm')
+    expect(
+      buildPhotoMetadata(
+        createPhoto({
+          focalLength: 2.32,
+          focalLength35mm: 25
+        })
+      ).exposure
+    ).toBe('25mm')
 
-    expect(buildPhotoMetadata(createPhoto({
-      focalLength: 2.32
-    })).exposure).toBe('2.32mm')
+    expect(
+      buildPhotoMetadata(
+        createPhoto({
+          focalLength: 2.32
+        })
+      ).exposure
+    ).toBe('2.32mm')
 
-    expect(buildPhotoMetadata(createPhoto({
-      focalLength35mm: 25
-    })).exposure).toBe('25mm')
+    expect(
+      buildPhotoMetadata(
+        createPhoto({
+          focalLength35mm: 25
+        })
+      ).exposure
+    ).toBe('25mm')
   })
 
   it('adds camera make when it is not already part of the model', () => {
-    expect(buildPhotoMetadata(createPhoto({
-      cameraMake: 'Fujifilm',
-      cameraModel: 'X-T5'
-    })).equipment).toBe('Fujifilm X-T5')
+    expect(
+      buildPhotoMetadata(
+        createPhoto({
+          cameraMake: 'Fujifilm',
+          cameraModel: 'X-T5'
+        })
+      ).equipment
+    ).toBe('Fujifilm X-T5')
   })
 })
 
@@ -82,7 +106,9 @@ describe('photo viewer media sizing', () => {
 
     expect(source).toContain('const isImageLoading = ref(false)')
     expect(source).toMatch(/v-if="isImageLoading"[\s\S]*?photo-viewer__loading/)
-    expect(source).toMatch(/@load="completeImageLoading"[\s\S]*?@error="completeImageLoading"/)
+    expect(source).toMatch(
+      /@load="completeImageLoading"[\s\S]*?@error="completeImageLoading"/
+    )
   })
 })
 

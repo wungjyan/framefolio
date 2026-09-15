@@ -52,18 +52,22 @@ export async function readPublicGalleryPhotos(
   }
 
   if (!isGalleryIndex(value)) {
-    throw new GalleryIndexError('The gallery index does not match the current schema.')
+    throw new GalleryIndexError(
+      'The gallery index does not match the current schema.'
+    )
   }
 
   return value.photos.map(toPublicPhoto)
 }
 
 export function isGalleryIndex(value: unknown): value is GalleryIndex {
-  if (!isRecord(value)
-    || value.schemaVersion !== GALLERY_SCHEMA_VERSION
-    || value.pipelineVersion !== GALLERY_PIPELINE_VERSION
-    || !isIsoDate(value.generatedAt)
-    || !Array.isArray(value.photos)) {
+  if (
+    !isRecord(value) ||
+    value.schemaVersion !== GALLERY_SCHEMA_VERSION ||
+    value.pipelineVersion !== GALLERY_PIPELINE_VERSION ||
+    !isIsoDate(value.generatedAt) ||
+    !Array.isArray(value.photos)
+  ) {
     return false
   }
 
@@ -71,9 +75,11 @@ export function isGalleryIndex(value: unknown): value is GalleryIndex {
   const filenames = new Set<string>()
 
   for (const photo of value.photos) {
-    if (!isPhotoIndexItem(photo)
-      || ids.has(photo.id)
-      || filenames.has(photo.filename)) {
+    if (
+      !isPhotoIndexItem(photo) ||
+      ids.has(photo.id) ||
+      filenames.has(photo.filename)
+    ) {
       return false
     }
 
@@ -108,31 +114,35 @@ export function toPublicPhoto(photo: PhotoIndexItem): GalleryPhoto {
 }
 
 function isPhotoIndexItem(value: unknown): value is PhotoIndexItem {
-  if (!isRecord(value)
-    || !isHash(value.id)
-    || !isNonEmptyString(value.filename)
-    || !isPositiveInteger(value.width)
-    || !isPositiveInteger(value.height)
-    || !isRecord(value.source)
-    || !isNonNegativeInteger(value.source.size)
-    || !isNonNegativeNumber(value.source.mtimeMs)
-    || !isHash(value.source.revision)) {
+  if (
+    !isRecord(value) ||
+    !isHash(value.id) ||
+    !isNonEmptyString(value.filename) ||
+    !isPositiveInteger(value.width) ||
+    !isPositiveInteger(value.height) ||
+    !isRecord(value.source) ||
+    !isNonNegativeInteger(value.source.size) ||
+    !isNonNegativeNumber(value.source.mtimeMs) ||
+    !isHash(value.source.revision)
+  ) {
     return false
   }
 
   const expectedPrefix = `/media/${value.id}-${value.source.revision}-`
 
-  return isGeneratedImageUrl(value.thumbnail, expectedPrefix, 'thumbnail')
-    && isGeneratedImageUrl(value.preview, expectedPrefix, 'preview')
-    && isOptionalIsoDate(value.takenAt)
-    && isOptionalNonEmptyString(value.cameraMake)
-    && isOptionalNonEmptyString(value.cameraModel)
-    && isOptionalNonEmptyString(value.lens)
-    && isOptionalPositiveNumber(value.focalLength)
-    && isOptionalPositiveInteger(value.focalLength35mm)
-    && isOptionalPositiveNumber(value.aperture)
-    && isOptionalNonEmptyString(value.shutterSpeed)
-    && isOptionalPositiveInteger(value.iso)
+  return (
+    isGeneratedImageUrl(value.thumbnail, expectedPrefix, 'thumbnail') &&
+    isGeneratedImageUrl(value.preview, expectedPrefix, 'preview') &&
+    isOptionalIsoDate(value.takenAt) &&
+    isOptionalNonEmptyString(value.cameraMake) &&
+    isOptionalNonEmptyString(value.cameraModel) &&
+    isOptionalNonEmptyString(value.lens) &&
+    isOptionalPositiveNumber(value.focalLength) &&
+    isOptionalPositiveInteger(value.focalLength35mm) &&
+    isOptionalPositiveNumber(value.aperture) &&
+    isOptionalNonEmptyString(value.shutterSpeed) &&
+    isOptionalPositiveInteger(value.iso)
+  )
 }
 
 function isGeneratedImageUrl(
@@ -145,8 +155,10 @@ function isGeneratedImageUrl(
   }
 
   const filename = value.slice('/media/'.length)
-  return GENERATED_IMAGE_FILENAME_PATTERN.test(filename)
-    && filename.endsWith(`-${variant}.webp`)
+  return (
+    GENERATED_IMAGE_FILENAME_PATTERN.test(filename) &&
+    filename.endsWith(`-${variant}.webp`)
+  )
 }
 
 function copyOptional<Key extends keyof GalleryPhoto>(
@@ -188,9 +200,11 @@ function isNonNegativeInteger(value: unknown): value is number {
 }
 
 function isIsoDate(value: unknown): value is string {
-  return typeof value === 'string'
-    && !Number.isNaN(Date.parse(value))
-    && new Date(value).toISOString() === value
+  return (
+    typeof value === 'string' &&
+    !Number.isNaN(Date.parse(value)) &&
+    new Date(value).toISOString() === value
+  )
 }
 
 function isOptionalIsoDate(value: unknown): boolean {
