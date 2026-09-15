@@ -11,6 +11,7 @@ coverage
 
 # Node dependencies
 node_modules
+.pnpm-store
 
 # Logs
 logs
@@ -32,6 +33,11 @@ data/originals/*
 !data/originals/.gitkeep
 data/generated/*
 !data/generated/.gitkeep
+data/incoming/*
+!data/incoming/.gitkeep
+data/.trash/*
+!data/.trash/.gitkeep
+data/.state/
 data/photos.json
 data/photos.json.tmp
 data/photos.json.*.tmp

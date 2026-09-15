@@ -1,3 +1,6 @@
 allowBuilds:
   esbuild: true
   puppeteer: true
+  # Ships prebuilt platform bindings as optional dependencies; its postinstall
+  # only re-checks them, so the script is not needed for ESLint to work.
+  unrs-resolver: false

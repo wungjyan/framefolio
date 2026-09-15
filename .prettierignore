@@ -1,0 +1,19 @@
+# Build and dependency output
+node_modules
+.output
+.nuxt
+.nitro
+.data
+.cache
+dist
+coverage
+
+# Runtime gallery data (user photos and generated derivatives)
+data
+
+# Lockfiles and generated artifacts
+pnpm-lock.yaml
+*.tsbuildinfo
+
+# Local AIDesigner artifacts
+.aidesigner

@@ -12,6 +12,10 @@
     "dev": "nuxt dev",
     "gallery:sync": "tsx scripts/gallery-sync.ts",
     "generate": "nuxt generate",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.{ts,vue,js,mjs,json,md,yml,yaml}\"",
+    "format:check": "prettier --check \"**/*.{ts,vue,js,mjs,json,md,yml,yaml}\"",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test": "vitest run",
@@ -26,7 +30,10 @@
     "vue-router": "^5.2.0"
   },
   "devDependencies": {
+    "@nuxt/eslint": "^1.17.0",
     "@types/node": "^26.3.0",
+    "eslint": "^10.10.0",
+    "prettier": "^3.9.6",
     "puppeteer": "^25.9.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.11",
