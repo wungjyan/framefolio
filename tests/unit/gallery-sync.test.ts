@@ -151,7 +151,7 @@ describe('gallery sync pipeline', () => {
 
     expect(result.index.photos[0]).toMatchObject({ width: 20, height: 40 })
 
-    const preview = result.index.photos[0]?.preview.split('/').at(-1)
+    const preview = result.index.photos[0]?.storage.preview
     const metadata = await sharp(
       join(paths.generated, preview as string)
     ).metadata()

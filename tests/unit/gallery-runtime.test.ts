@@ -37,7 +37,7 @@ describe('gallery runtime index', () => {
     await expect(readPublicGalleryPhotos(paths.index)).resolves.toEqual([])
   })
 
-  it('maps a valid index to public fields only', async () => {
+  it('maps a valid index to public fields and assembles local URLs', async () => {
     const paths = resolveGalleryPaths({ dataDirectory: fixturePath('valid') })
     const photo = createPhoto()
 
@@ -48,8 +48,9 @@ describe('gallery runtime index', () => {
       {
         id: photo.id,
         filename: photo.filename,
-        thumbnail: photo.thumbnail,
-        preview: photo.preview,
+        // URLs are built at read time from the stored keys.
+        thumbnail: `/media/${photo.storage.thumbnail}`,
+        preview: `/media/${photo.storage.preview}`,
         width: photo.width,
         height: photo.height,
         takenAt: photo.takenAt,
@@ -70,7 +71,9 @@ describe('gallery runtime index', () => {
     )
 
     const invalidPhoto = createPhoto()
-    invalidPhoto.thumbnail = '/media/../../originals/private.jpg'
+    // A stored key must be a bare filename, so a traversal attempt is refused
+    // even though it is a valid string.
+    invalidPhoto.storage.thumbnail = '../../originals/private.jpg'
     await writeFile(paths.index, JSON.stringify(createIndex(invalidPhoto)))
     await expect(readPublicGalleryPhotos(paths.index)).rejects.toBeInstanceOf(
       GalleryIndexError
@@ -131,10 +134,12 @@ function createPhoto(): PhotoIndexItem {
   return {
     id,
     filename: 'example.jpg',
-    thumbnail: `/media/${id}-${revision}-thumbnail.webp`,
-    preview: `/media/${id}-${revision}-preview.webp`,
     width: 2400,
     height: 1600,
+    storage: {
+      thumbnail: `${id}-${revision}-thumbnail.webp`,
+      preview: `${id}-${revision}-preview.webp`
+    },
     takenAt: '2026-08-20T12:00:00.000Z',
     cameraModel: 'Example Camera',
     focalLength: 6.54,

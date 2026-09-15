@@ -36,7 +36,9 @@ afterEach(async () => {
 
 describe('gallery baseline', () => {
   it('keeps the schema and image processing contract stable', () => {
-    expect(GALLERY_SCHEMA_VERSION).toBe(1)
+    // v2 stores storage keys instead of baked URLs; bumping this is
+    // intentional and requires a sync before the new build serves traffic.
+    expect(GALLERY_SCHEMA_VERSION).toBe(2)
     expect(GALLERY_PIPELINE_VERSION).toBe(2)
     expect(GENERATED_IMAGE_EXTENSION).toBe('webp')
     expect(GENERATED_IMAGE_COLOURSPACE).toBe('srgb')
@@ -51,8 +53,18 @@ describe('gallery baseline', () => {
     expect(IMAGE_VARIANTS.preview).toMatchObject({ maxEdge: 2560, quality: 88 })
   })
 
-  it('uses one public photo contract for index and API data', () => {
-    expectTypeOf<PhotoIndexItem>().toExtend<GalleryPhoto>()
+  it('keeps the index off the URL contract and the API on it', () => {
+    // The index stores bare storage keys, so it must NOT carry URL fields...
+    expectTypeOf<PhotoIndexItem>().not.toHaveProperty('thumbnail')
+    expectTypeOf<PhotoIndexItem>().not.toHaveProperty('preview')
+    expectTypeOf<PhotoIndexItem['storage']>().toEqualTypeOf<{
+      thumbnail: string
+      preview: string
+    }>()
+    // ...while the public API keeps returning complete URLs, so the frontend
+    // never learns which storage source is active.
+    expectTypeOf<GalleryPhoto>().toHaveProperty('thumbnail')
+    expectTypeOf<GalleryPhoto>().toHaveProperty('preview')
     expectTypeOf<GalleryIndex['photos']>().toEqualTypeOf<PhotoIndexItem[]>()
     expectTypeOf<PhotosResponse>().toEqualTypeOf<GalleryPhoto[]>()
   })
@@ -68,11 +80,18 @@ describe('gallery baseline', () => {
 
     expect(paths.data).toBe(join(root, 'data'))
     expect(paths.index).toBe(join(root, 'data', 'photos.json'))
+    expect(paths.incoming).toBe(join(root, 'data', 'incoming'))
+    expect(paths.trash).toBe(join(root, 'data', '.trash'))
+    expect(paths.state).toBe(join(root, 'data', '.state'))
+    expect(paths.lock).toBe(join(root, 'data', '.state', 'sync.lock'))
 
     await ensureGalleryDirectories(paths)
 
     await expect(access(paths.originals)).resolves.toBeUndefined()
     await expect(access(paths.generated)).resolves.toBeUndefined()
+    await expect(access(paths.incoming)).resolves.toBeUndefined()
+    await expect(access(paths.trash)).resolves.toBeUndefined()
+    await expect(access(paths.state)).resolves.toBeUndefined()
   })
 
   it('honors the runtime data directory override', () => {

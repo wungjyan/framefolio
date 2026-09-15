@@ -1,4 +1,4 @@
-export const GALLERY_SCHEMA_VERSION = 1 as const
+export const GALLERY_SCHEMA_VERSION = 2 as const
 export const GALLERY_PIPELINE_VERSION = 2 as const
 
 export const GALLERY_DATA_DIRECTORY_ENV = 'NUXT_GALLERY_DATA_DIR'

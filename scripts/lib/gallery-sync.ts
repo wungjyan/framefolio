@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import {
   access,
   mkdir,
@@ -19,10 +18,15 @@ import {
   createTemporaryPath
 } from '../../shared/node/temporary-files'
 import {
+  createPhotoId,
+  createPhotoRevision as createPhotoRevisionHash,
+  normalizeRelativePath,
+  sourcesMatch
+} from '../../shared/node/photo-fingerprint'
+import {
   GENERATED_IMAGE_COLOURSPACE,
   GENERATED_IMAGE_EXTENSION,
   GENERATED_IMAGE_FILENAME_PATTERN,
-  GENERATED_IMAGE_HASH_LENGTH,
   GALLERY_PIPELINE_VERSION,
   GALLERY_SCHEMA_VERSION,
   IMAGE_RESIZE_OPTIONS,
@@ -51,6 +55,14 @@ export type {
   GallerySyncProgress,
   GallerySyncSummary
 } from '../../shared/types/sync'
+// Re-export the pure fingerprint helpers so existing callers of this module
+// keep working after they moved to `shared/` (the admin API needs them without
+// loading sharp).
+export {
+  createPhotoId,
+  normalizeRelativePath,
+  sourcesMatch
+} from '../../shared/node/photo-fingerprint'
 
 const EXIF_FIELDS = [
   'Make',
@@ -118,12 +130,11 @@ export async function ensureGalleryDirectories(
 ): Promise<void> {
   await Promise.all([
     mkdir(paths.originals, { recursive: true }),
-    mkdir(paths.generated, { recursive: true })
+    mkdir(paths.generated, { recursive: true }),
+    mkdir(paths.incoming, { recursive: true }),
+    mkdir(paths.trash, { recursive: true }),
+    mkdir(paths.state, { recursive: true })
   ])
-}
-
-export function createPhotoId(relativePath: string): string {
-  return shortHash(normalizeRelativePath(relativePath))
 }
 
 export function createPhotoRevision(
@@ -131,18 +142,7 @@ export function createPhotoRevision(
   source: Pick<PhotoSourceState, 'size' | 'mtimeMs'>,
   pipelineVersion: number = GALLERY_PIPELINE_VERSION
 ): string {
-  return shortHash(
-    [
-      normalizeRelativePath(relativePath),
-      String(source.size),
-      String(source.mtimeMs),
-      String(pipelineVersion)
-    ].join('\0')
-  )
-}
-
-export function normalizeRelativePath(relativePath: string): string {
-  return relativePath.replaceAll('\\', '/').normalize('NFC')
+  return createPhotoRevisionHash(relativePath, source, pipelineVersion)
 }
 
 export function normalizeShutterSpeed(value: unknown): string | undefined {
@@ -384,10 +384,12 @@ async function processPhoto(
     return {
       id,
       filename: sourcePhoto.relativePath,
-      thumbnail: outputFiles.thumbnail.url,
-      preview: outputFiles.preview.url,
       width: outputInfo.width,
       height: outputInfo.height,
+      storage: {
+        thumbnail: outputFiles.thumbnail.filename,
+        preview: outputFiles.preview.filename
+      },
       ...metadata,
       source
     }
@@ -560,8 +562,8 @@ async function generatedFilesExist(
   generatedDirectory: string
 ): Promise<boolean> {
   const filenames = [
-    generatedFilenameFromUrl(photo.thumbnail),
-    generatedFilenameFromUrl(photo.preview)
+    generatedFilenameFromKey(photo.storage.thumbnail),
+    generatedFilenameFromKey(photo.storage.preview)
   ]
 
   if (filenames.some(filename => filename === undefined)) {
@@ -589,8 +591,8 @@ async function cleanUnreferencedGeneratedFiles(
 ): Promise<void> {
   const referencedFiles = new Set(
     photos
-      .flatMap(photo => [photo.thumbnail, photo.preview])
-      .map(generatedFilenameFromUrl)
+      .flatMap(photo => [photo.storage.thumbnail, photo.storage.preview])
+      .map(generatedFilenameFromKey)
       .filter((filename): filename is string => filename !== undefined)
   )
   const entries = await readdir(generatedDirectory, { withFileTypes: true })
@@ -630,33 +632,18 @@ function createOutputFiles(
         variant,
         {
           path: join(generatedDirectory, filename),
-          url: `/media/${filename}`
+          // The index stores this bare filename; the URL is assembled at read
+          // time so one index can serve both local and object storage.
+          filename
         }
       ]
     })
-  ) as Record<ImageVariant, { path: string; url: string }>
+  ) as Record<ImageVariant, { path: string; filename: string }>
 }
 
-function generatedFilenameFromUrl(url: string): string | undefined {
-  const prefix = '/media/'
-
-  if (!url.startsWith(prefix)) {
-    return undefined
-  }
-
-  const filename = url.slice(prefix.length)
-  return GENERATED_IMAGE_FILENAME_PATTERN.test(filename) ? filename : undefined
-}
-
-function sourcesMatch(
-  left: PhotoSourceState,
-  right: PhotoSourceState
-): boolean {
-  return (
-    left.size === right.size &&
-    left.mtimeMs === right.mtimeMs &&
-    left.revision === right.revision
-  )
+/** Validate a stored key (a bare generated filename, never a URL). */
+function generatedFilenameFromKey(key: string): string | undefined {
+  return GENERATED_IMAGE_FILENAME_PATTERN.test(key) ? key : undefined
 }
 
 function comparePhotos(left: PhotoIndexItem, right: PhotoIndexItem): number {
@@ -676,13 +663,6 @@ function comparePhotos(left: PhotoIndexItem, right: PhotoIndexItem): number {
     numeric: true,
     sensitivity: 'base'
   })
-}
-
-function shortHash(value: string): string {
-  return createHash('sha256')
-    .update(value)
-    .digest('hex')
-    .slice(0, GENERATED_IMAGE_HASH_LENGTH)
 }
 
 function normalizeDate(value: unknown): string | undefined {
@@ -754,19 +734,38 @@ function isLoadedGalleryIndex(value: unknown): value is LoadedGalleryIndex {
 }
 
 function isPhotoIndexItem(value: unknown): value is PhotoIndexItem {
-  if (!isRecord(value) || !isRecord(value.source)) {
+  if (
+    !isRecord(value) ||
+    !isRecord(value.source) ||
+    !isRecord(value.storage)
+  ) {
     return false
   }
 
   return (
-    ['id', 'filename', 'thumbnail', 'preview'].every(
-      key => typeof value[key] === 'string'
-    ) &&
+    typeof value.id === 'string' &&
+    typeof value.filename === 'string' &&
+    typeof value.storage.thumbnail === 'string' &&
+    typeof value.storage.preview === 'string' &&
     isPositiveFiniteNumber(value.width) &&
     isPositiveFiniteNumber(value.height) &&
     isNonNegativeFiniteNumber(value.source.size) &&
     isNonNegativeFiniteNumber(value.source.mtimeMs) &&
-    typeof value.source.revision === 'string'
+    typeof value.source.revision === 'string' &&
+    isOptionalRemoteState(value.remote)
+  )
+}
+
+function isOptionalRemoteState(value: unknown): boolean {
+  if (value === undefined) {
+    return true
+  }
+
+  return (
+    isRecord(value) &&
+    value.provider === 's3' &&
+    typeof value.revision === 'string' &&
+    typeof value.uploadedAt === 'string'
   )
 }
 
