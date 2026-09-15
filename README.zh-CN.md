@@ -19,11 +19,27 @@ Framefolio 是一个自托管的极简摄影作品集。将照片放入数据目
 
 默认访问地址：`http://localhost:3123`。
 
+## 先搞清楚：两个 compose 文件是什么
+
+仓库里有**两个** compose 文件，用途不同，**平时只需要用其中一个**：
+
+| 文件                 | 镜像来源                         | 什么时候用                                                |
+| -------------------- | -------------------------------- | --------------------------------------------------------- |
+| `compose.image.yml`  | 直接拉取 Docker Hub 上现成的镜像 | **推荐**。部署到 NAS 就用这个，不需要源码、不需要本机构建 |
+| `docker-compose.yml` | 从本机源码构建镜像               | 只在你要**改代码**时用                                    |
+
+**两者功能完全相同**（容器、挂载、环境变量、健康检查都一样），唯一区别就是「镜像从哪来」：
+
+- 用 `compose.image.yml`：NAS 上不用装源码，也不用等几分钟构建
+- 用 `docker-compose.yml`：会先执行 `docker compose build`，适合改完代码立刻验证
+
+> 所以部署时**只用 `compose.image.yml`**，可以完全不理 `docker-compose.yml`。
+
 ## 部署方式
 
-### 方式一：直接使用 Docker Hub 镜像（推荐）
+### 方式一：直接使用 Docker Hub 镜像（推荐，NAS 就用这个）
 
-这种方式不需要克隆源码，也不需要在本机执行构建。镜像同时支持 `linux/amd64` 和 `linux/arm64`。
+不需要源码，也不需要构建。镜像同时支持 `linux/amd64`（群晖/威联通常见的 Intel）和 `linux/arm64`（Apple Silicon、部分 ARM NAS）。
 
 ```bash
 mkdir framefolio
@@ -32,28 +48,47 @@ curl -LO https://raw.githubusercontent.com/wungjyan/framefolio/main/compose.imag
 mkdir -p data/originals data/generated
 ```
 
-拉取镜像并启动：
+创建 `.env`（**必须与 `compose.image.yml` 放在同一目录**）：
+
+```env
+FRAMEFOLIO_PORT=3123
+PUID=1000
+PGID=1000
+
+# 使用管理端必须设置
+FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令
+```
+
+然后拉取并启动：
 
 ```bash
 docker compose -f compose.image.yml pull
 docker compose -f compose.image.yml up -d gallery
 ```
 
-然后打开 `/admin`（例如 `http://你的地址:3123/admin`），登录后点「**立即同步**」。
+打开 `http://你的地址:3123/admin`，输入口令登录，点「**立即同步**」，照片就会出现在首页。
 
-默认使用 `wungjyan/framefolio:latest`。可在同一目录创建 `.env` 进行配置：
+`PUID` 和 `PGID` 决定写入文件时使用的用户身份。Linux / NAS 用户可通过 `id -u` 和 `id -g` 查询实际值；如果结果不是 `1000`，请相应修改，否则可能因权限不足导致同步失败。
 
-```env
-FRAMEFOLIO_IMAGE=wungjyan/framefolio:1.0.0
-FRAMEFOLIO_PORT=3123
-PUID=1000
-PGID=1000
+> **以上三项就是本地模式所需的全部配置。** 不需要对象存储、不需要域名、不需要 CDN。
 
-# 使用管理端必须设置；不设置时 /admin 返回 404
-FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令
-```
+### 关于 S3 / 对象存储：暂时可以不配
 
-`PUID` 和 `PGID` 决定写入文件时使用的用户身份。Linux 用户可通过 `id -u` 和 `id -g` 查询实际值；如果结果不是 `1000`，请相应修改。
+**只用本地模式时，一个 `FRAMEFOLIO_S3_*` 变量都不需要设置。** 这是默认状态：
+
+- 默认 `FRAMEFOLIO_STORAGE_SOURCE=local`，图片由本机 `/media/` 路由提供
+- 没有配置对象存储时，同步只写本地文件，**不会尝试任何网络上传**
+- 公开画廊、管理端、上传、删除、同步全部正常工作
+
+什么时候才需要配：
+
+| 你的情况                     | 要不要配 S3                          |
+| ---------------------------- | ------------------------------------ |
+| 只有自己看，访问速度可以接受 | **不用**，保持默认即可               |
+| 外网访问慢，想用 CDN 加速    | 要配，见下方「对象存储（CDN 加速）」 |
+| 已经买好了 R2 / OSS          | 要配                                 |
+
+想以后再补也完全可以：**加配置 → 重启 → 在管理端切换**，不需要重新部署，也不需要重新处理已有图片。
 
 > **从没有管理端的旧版本升级？** 索引格式已改变，公开画廊在你同步一次之前会显示错误状态。打开 `/admin` 点一次「立即同步」即可恢复。**首次同步会重新生成全部缩略图**（旧索引无法复用），之后都是增量同步。
 
@@ -75,12 +110,22 @@ pnpm gallery:sync
 pnpm dev
 ```
 
+**要使用管理端，启动时必须带上管理端口令**，否则 `/admin` 会显示「管理端未启用」：
+
+```bash
+FRAMEFOLIO_ADMIN_PASSWORD=你的口令 pnpm dev
+```
+
+> 命令行同步（`pnpm gallery:sync`）**不需要**管理端口令，它与管理端是独立的。
+
 如需以生产模式运行：
 
 ```bash
-pnpm build
-NITRO_HOST=0.0.0.0 NITRO_PORT=3123 node .output/server/index.mjs
+FRAMEFOLIO_ADMIN_PASSWORD=你的口令 pnpm build
+FRAMEFOLIO_ADMIN_PASSWORD=你的口令 NITRO_HOST=0.0.0.0 NITRO_PORT=3123 node .output/server/index.mjs
 ```
+
+（构建本身不需要口令，运行时才需要。也可以把变量写进 `.env`，Nuxt 会自动读取。）
 
 ### 方式三：从源码构建 Docker 镜像
 

@@ -19,11 +19,27 @@ JPEG, PNG, TIFF, and WebP originals are supported. HEIC, HEIF, AVIF, GIF, and ca
 
 The default address is `http://localhost:3123`.
 
+## First: the two compose files
+
+The repository ships **two** compose files with different purposes. **You only need one of them.**
+
+| File                 | Image source                         | When to use it                                                               |
+| -------------------- | ------------------------------------ | ---------------------------------------------------------------------------- |
+| `compose.image.yml`  | Pulls the published Docker Hub image | **Recommended.** Use this to deploy on a NAS: no source code, no local build |
+| `docker-compose.yml` | Builds the image from local source   | Only when you are **changing the code**                                      |
+
+They are otherwise identical — same container, mounts, environment variables, and healthcheck. The only difference is where the image comes from:
+
+- `compose.image.yml` needs neither the source tree nor a several-minute build on the NAS
+- `docker-compose.yml` runs `docker compose build` first, which is what you want after editing code
+
+> So for deployment, **use `compose.image.yml`** and ignore `docker-compose.yml` entirely.
+
 ## Deployment
 
-### Option 1: Use the Docker Hub image (recommended)
+### Option 1: Use the Docker Hub image (recommended — this is the NAS path)
 
-This option requires neither the source code nor a local build. The image supports both `linux/amd64` and `linux/arm64`.
+This requires neither the source code nor a local build. The image supports both `linux/amd64` (the Intel chips common in Synology/QNAP NAS units) and `linux/arm64` (Apple Silicon, some ARM NAS units).
 
 ```bash
 mkdir framefolio
@@ -32,28 +48,47 @@ curl -LO https://raw.githubusercontent.com/wungjyan/framefolio/main/compose.imag
 mkdir -p data/originals data/generated
 ```
 
-Pull the image and start the gallery:
+Create a `.env` file (**it must sit next to `compose.image.yml`**):
+
+```env
+FRAMEFOLIO_PORT=3123
+PUID=1000
+PGID=1000
+
+# Required to use the admin area
+FRAMEFOLIO_ADMIN_PASSWORD=choose-a-strong-password
+```
+
+Then pull and start:
 
 ```bash
 docker compose -f compose.image.yml pull
 docker compose -f compose.image.yml up -d gallery
 ```
 
-Then open `/admin` (for example `http://your-host:3123/admin`), sign in, and press **Sync now**.
+Open `http://your-host:3123/admin`, sign in, and press **Sync now**. The photos appear on the home page.
 
-The default image is `wungjyan/framefolio:latest`. Create a `.env` file in the same directory to configure it:
+`PUID` and `PGID` control the host user identity used when writing files. On Linux and NAS systems, use `id -u` and `id -g` to find the right values; update them if they are not `1000`, or the sync may fail with a permission error.
 
-```env
-FRAMEFOLIO_IMAGE=wungjyan/framefolio:1.0.0
-FRAMEFOLIO_PORT=3123
-PUID=1000
-PGID=1000
+> **Those three settings are everything local mode needs.** No object storage, no domain, no CDN.
 
-# Required to use the admin area. Without it, /admin returns 404.
-FRAMEFOLIO_ADMIN_PASSWORD=choose-a-strong-password
-```
+### About S3 / object storage: you can skip it for now
 
-`PUID` and `PGID` control the host user identity used when writing files. On Linux, use `id -u` and `id -g` to find the right values; update them if they are not `1000`.
+**If you only use local mode, you do not need to set any `FRAMEFOLIO_S3_*` variable.** That is the default state:
+
+- `FRAMEFOLIO_STORAGE_SOURCE` defaults to `local`, and images are served by this machine's `/media/` route
+- With no object storage configured, a sync writes local files only and **makes no network uploads at all**
+- The public gallery, the admin area, upload, delete, and sync all work normally
+
+When you would actually need it:
+
+| Your situation                                      | Set up S3?                            |
+| --------------------------------------------------- | ------------------------------------- |
+| Only you look at the gallery, and the speed is fine | **No** — leave the defaults           |
+| Remote access is slow and you want CDN caching      | Yes, see "Object storage (CDN)" below |
+| You already have R2 / OSS                           | Yes                                   |
+
+Adding it later is fine: **add the settings, restart, switch in the admin area.** No redeploy, and no reprocessing of existing photos.
 
 > **Upgrading from a version without the admin area?** The photo index format changed, so the public gallery shows an error until you sync once. Just open `/admin` and press **Sync now**. The first sync regenerates all thumbnails because the old index cannot be reused; later syncs are incremental.
 
@@ -75,12 +110,21 @@ pnpm gallery:sync
 pnpm dev
 ```
 
+**To use the admin area, start with the password set.** Without it, `/admin` shows "admin not enabled" instead of a login form:
+
+```bash
+FRAMEFOLIO_ADMIN_PASSWORD=your-password pnpm dev
+```
+
+> The command-line sync (`pnpm gallery:sync`) does **not** need the admin password; it is independent of the admin area.
+
 For a production process:
 
 ```bash
-pnpm build
-NITRO_HOST=0.0.0.0 NITRO_PORT=3123 node .output/server/index.mjs
+FRAMEFOLIO_ADMIN_PASSWORD=your-password NITRO_HOST=0.0.0.0 NITRO_PORT=3123 node .output/server/index.mjs
 ```
+
+(You can also put the variables in `.env`, which Nuxt reads automatically.)
 
 ### Option 3: Build a Docker image from source
 
