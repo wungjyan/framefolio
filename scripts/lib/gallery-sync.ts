@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import {
   access,
   mkdir,
@@ -14,6 +14,10 @@ import { extname, join } from 'node:path'
 import exifr from 'exifr'
 import sharp from 'sharp'
 
+import {
+  cleanStaleTemporaryFiles,
+  createTemporaryPath
+} from '../../shared/node/temporary-files'
 import {
   GENERATED_IMAGE_COLOURSPACE,
   GENERATED_IMAGE_EXTENSION,
@@ -36,6 +40,17 @@ import type {
   PhotoIndexItem,
   PhotoSourceState
 } from '../../shared/types/photo'
+import type {
+  GallerySyncError,
+  GallerySyncProgress,
+  GallerySyncSummary
+} from '../../shared/types/sync'
+
+export type {
+  GallerySyncError,
+  GallerySyncProgress,
+  GallerySyncSummary
+} from '../../shared/types/sync'
 
 const EXIF_FIELDS = [
   'Make',
@@ -51,6 +66,8 @@ const EXIF_FIELDS = [
   'DateTimeOriginal',
   'CreateDate'
 ]
+
+const TEMPORARY_FILE_STALE_AFTER_MS = 60 * 60 * 1000
 
 interface SourcePhoto {
   absolutePath: string
@@ -79,19 +96,6 @@ interface ExifData {
   CreateDate?: unknown
 }
 
-export interface GallerySyncSummary {
-  added: number
-  updated: number
-  skipped: number
-  deleted: number
-  failed: number
-}
-
-export interface GallerySyncError {
-  filename: string
-  message: string
-}
-
 export interface GallerySyncResult {
   index: GalleryIndex
   summary: GallerySyncSummary
@@ -102,9 +106,16 @@ export interface GallerySyncResult {
 export interface RunGallerySyncOptions {
   paths?: GalleryPaths
   now?: () => Date
+  /**
+   * Called as the pipeline advances. Used by the web-triggered job runner to
+   * stream progress to the admin UI; the CLI ignores it.
+   */
+  onProgress?: (progress: GallerySyncProgress) => void
 }
 
-export async function ensureGalleryDirectories(paths: GalleryPaths): Promise<void> {
+export async function ensureGalleryDirectories(
+  paths: GalleryPaths
+): Promise<void> {
   await Promise.all([
     mkdir(paths.originals, { recursive: true }),
     mkdir(paths.generated, { recursive: true })
@@ -120,12 +131,14 @@ export function createPhotoRevision(
   source: Pick<PhotoSourceState, 'size' | 'mtimeMs'>,
   pipelineVersion: number = GALLERY_PIPELINE_VERSION
 ): string {
-  return shortHash([
-    normalizeRelativePath(relativePath),
-    String(source.size),
-    String(source.mtimeMs),
-    String(pipelineVersion)
-  ].join('\0'))
+  return shortHash(
+    [
+      normalizeRelativePath(relativePath),
+      String(source.size),
+      String(source.mtimeMs),
+      String(pipelineVersion)
+    ].join('\0')
+  )
 }
 
 export function normalizeRelativePath(relativePath: string): string {
@@ -177,7 +190,14 @@ export async function runGallerySync(
   }
 
   await ensureGalleryDirectories(paths)
-  await cleanTemporaryFiles(paths.generated, errors)
+  await cleanStaleTemporaryFiles(
+    paths.generated,
+    TEMPORARY_FILE_STALE_AFTER_MS
+  ).then(removed => {
+    for (const filename of removed) {
+      warnings.push(`Removed stale temporary file: ${filename}`)
+    }
+  })
 
   const previousIndex = await readGalleryIndex(paths.index, warnings)
   const previousByFilename = new Map(
@@ -186,10 +206,18 @@ export async function runGallerySync(
   const sourcePhotos = await scanOriginalPhotos(paths.originals)
   const sourceFilenames = new Set(sourcePhotos.map(photo => photo.relativePath))
   const nextPhotos: PhotoIndexItem[] = []
+  const reportProgress = options.onProgress
+  let completed = 0
 
-  summary.deleted = [...previousByFilename.keys()]
-    .filter(filename => !sourceFilenames.has(filename))
-    .length
+  summary.deleted = [...previousByFilename.keys()].filter(
+    filename => !sourceFilenames.has(filename)
+  ).length
+
+  reportProgress?.({
+    phase: 'processing',
+    completed: 0,
+    total: sourcePhotos.length
+  })
 
   for (const sourcePhoto of sourcePhotos) {
     const previousPhoto = previousByFilename.get(sourcePhoto.relativePath)
@@ -201,13 +229,20 @@ export async function runGallerySync(
     }
 
     if (
-      previousPhoto
-      && previousIndex?.pipelineVersion === GALLERY_PIPELINE_VERSION
-      && sourcesMatch(previousPhoto.source, source)
-      && await generatedFilesExist(previousPhoto, paths.generated)
+      previousPhoto &&
+      previousIndex?.pipelineVersion === GALLERY_PIPELINE_VERSION &&
+      sourcesMatch(previousPhoto.source, source) &&
+      (await generatedFilesExist(previousPhoto, paths.generated))
     ) {
       nextPhotos.push(previousPhoto)
       summary.skipped += 1
+      completed += 1
+      reportProgress?.({
+        phase: 'processing',
+        completed,
+        total: sourcePhotos.length,
+        filename: sourcePhoto.relativePath
+      })
       continue
     }
 
@@ -231,9 +266,23 @@ export async function runGallerySync(
         nextPhotos.push(previousPhoto)
       }
     }
+
+    completed += 1
+    reportProgress?.({
+      phase: 'processing',
+      completed,
+      total: sourcePhotos.length,
+      filename: sourcePhoto.relativePath
+    })
   }
 
   nextPhotos.sort(comparePhotos)
+
+  reportProgress?.({
+    phase: 'finalising',
+    completed,
+    total: sourcePhotos.length
+  })
 
   const index: GalleryIndex = {
     schemaVersion: GALLERY_SCHEMA_VERSION,
@@ -245,6 +294,12 @@ export async function runGallerySync(
   await writeGalleryIndex(paths.index, index)
   await cleanUnreferencedGeneratedFiles(paths.generated, index.photos, errors)
 
+  reportProgress?.({
+    phase: 'done',
+    completed,
+    total: sourcePhotos.length
+  })
+
   return {
     index,
     summary,
@@ -253,10 +308,15 @@ export async function runGallerySync(
   }
 }
 
-async function scanOriginalPhotos(originalsDirectory: string): Promise<SourcePhoto[]> {
+async function scanOriginalPhotos(
+  originalsDirectory: string
+): Promise<SourcePhoto[]> {
   const photos: SourcePhoto[] = []
 
-  async function walk(directory: string, relativeDirectory = ''): Promise<void> {
+  async function walk(
+    directory: string,
+    relativeDirectory = ''
+  ): Promise<void> {
     const entries = await readdir(directory, { withFileTypes: true })
     entries.sort((left, right) => left.name.localeCompare(right.name, 'en'))
 
@@ -272,8 +332,8 @@ async function scanOriginalPhotos(originalsDirectory: string): Promise<SourcePho
       }
 
       if (
-        !entry.isFile()
-        || !SUPPORTED_IMAGE_EXTENSIONS.has(extname(entry.name).toLowerCase())
+        !entry.isFile() ||
+        !SUPPORTED_IMAGE_EXTENSIONS.has(extname(entry.name).toLowerCase())
       ) {
         continue
       }
@@ -289,7 +349,9 @@ async function scanOriginalPhotos(originalsDirectory: string): Promise<SourcePho
   }
 
   await walk(originalsDirectory)
-  photos.sort((left, right) => left.relativePath.localeCompare(right.relativePath, 'en'))
+  photos.sort((left, right) =>
+    left.relativePath.localeCompare(right.relativePath, 'en')
+  )
 
   return photos
 }
@@ -302,10 +364,9 @@ async function processPhoto(
 ): Promise<PhotoIndexItem> {
   const id = createPhotoId(sourcePhoto.relativePath)
   const outputFiles = createOutputFiles(id, source.revision, paths.generated)
-  const temporarySuffix = `${process.pid}-${randomUUID()}.tmp`
   const temporaryFiles = {
-    thumbnail: `${outputFiles.thumbnail.path}.${temporarySuffix}`,
-    preview: `${outputFiles.preview.path}.${temporarySuffix}`
+    thumbnail: createTemporaryPath(outputFiles.thumbnail.path),
+    preview: createTemporaryPath(outputFiles.preview.path)
   }
   const finalizedFiles: string[] = []
 
@@ -342,7 +403,7 @@ async function processPhoto(
 async function generateImages(
   sourcePath: string,
   temporaryFiles: Record<ImageVariant, string>
-): Promise<{ width: number, height: number }> {
+): Promise<{ width: number; height: number }> {
   const baseImage = sharp(sourcePath, {
     failOn: 'error',
     sequentialRead: true
@@ -386,11 +447,16 @@ async function generateVariant(
 async function readExifData(
   sourcePhoto: SourcePhoto,
   warnings: string[]
-): Promise<Omit<GalleryPhoto, 'id' | 'filename' | 'thumbnail' | 'preview' | 'width' | 'height'>> {
+): Promise<
+  Omit<
+    GalleryPhoto,
+    'id' | 'filename' | 'thumbnail' | 'preview' | 'width' | 'height'
+  >
+> {
   let data: ExifData | undefined
 
   try {
-    data = await exifr.parse(sourcePhoto.absolutePath, {
+    data = (await exifr.parse(sourcePhoto.absolutePath, {
       pick: EXIF_FIELDS,
       gps: false,
       xmp: false,
@@ -399,7 +465,7 @@ async function readExifData(
       jfif: false,
       makerNote: false,
       userComment: false
-    }) as ExifData | undefined
+    })) as ExifData | undefined
   } catch (error: unknown) {
     warnings.push(
       `${sourcePhoto.relativePath}: EXIF unavailable (${getErrorMessage(error)})`
@@ -448,14 +514,18 @@ async function readGalleryIndex(
     const value: unknown = JSON.parse(rawIndex)
 
     if (!isLoadedGalleryIndex(value)) {
-      warnings.push('Existing photos.json is invalid; rebuilding it from originals')
+      warnings.push(
+        'Existing photos.json is invalid; rebuilding it from originals'
+      )
       return undefined
     }
 
     return value
   } catch (error: unknown) {
     if (error instanceof SyntaxError) {
-      warnings.push('Existing photos.json is malformed; rebuilding it from originals')
+      warnings.push(
+        'Existing photos.json is malformed; rebuilding it from originals'
+      )
       return undefined
     }
 
@@ -463,11 +533,26 @@ async function readGalleryIndex(
   }
 }
 
-async function writeGalleryIndex(indexPath: string, index: GalleryIndex): Promise<void> {
-  const temporaryPath = `${indexPath}.tmp`
+async function writeGalleryIndex(
+  indexPath: string,
+  index: GalleryIndex
+): Promise<void> {
+  // The temporary name must be unique per process: the admin button and the CLI
+  // can sync concurrently, and a fixed `<index>.tmp` would let one process
+  // rename the file out from under the other (observed as an ENOENT rename).
+  const temporaryPath = createTemporaryPath(indexPath)
 
-  await writeFile(temporaryPath, `${JSON.stringify(index, null, 2)}\n`, 'utf8')
-  await rename(temporaryPath, indexPath)
+  try {
+    await writeFile(
+      temporaryPath,
+      `${JSON.stringify(index, null, 2)}\n`,
+      'utf8'
+    )
+    await rename(temporaryPath, indexPath)
+  } catch (error: unknown) {
+    await rm(temporaryPath, { force: true })
+    throw error
+  }
 }
 
 async function generatedFilesExist(
@@ -483,16 +568,18 @@ async function generatedFilesExist(
     return false
   }
 
-  return (await Promise.all(
-    filenames.map(async (filename) => {
-      try {
-        await access(join(generatedDirectory, filename as string))
-        return true
-      } catch {
-        return false
-      }
-    })
-  )).every(Boolean)
+  return (
+    await Promise.all(
+      filenames.map(async filename => {
+        try {
+          await access(join(generatedDirectory, filename as string))
+          return true
+        } catch {
+          return false
+        }
+      })
+    )
+  ).every(Boolean)
 }
 
 async function cleanUnreferencedGeneratedFiles(
@@ -501,65 +588,53 @@ async function cleanUnreferencedGeneratedFiles(
   errors: GallerySyncError[]
 ): Promise<void> {
   const referencedFiles = new Set(
-    photos.flatMap(photo => [photo.thumbnail, photo.preview])
+    photos
+      .flatMap(photo => [photo.thumbnail, photo.preview])
       .map(generatedFilenameFromUrl)
       .filter((filename): filename is string => filename !== undefined)
   )
   const entries = await readdir(generatedDirectory, { withFileTypes: true })
 
-  await Promise.all(entries.map(async (entry) => {
-    if (
-      !entry.isFile()
-      || !GENERATED_IMAGE_FILENAME_PATTERN.test(entry.name)
-      || referencedFiles.has(entry.name)
-    ) {
-      return
-    }
+  await Promise.all(
+    entries.map(async entry => {
+      if (
+        !entry.isFile() ||
+        !GENERATED_IMAGE_FILENAME_PATTERN.test(entry.name) ||
+        referencedFiles.has(entry.name)
+      ) {
+        return
+      }
 
-    try {
-      await rm(join(generatedDirectory, entry.name), { force: true })
-    } catch (error: unknown) {
-      errors.push({
-        filename: entry.name,
-        message: `unable to remove stale generated file: ${getErrorMessage(error)}`
-      })
-    }
-  }))
+      try {
+        await rm(join(generatedDirectory, entry.name), { force: true })
+      } catch (error: unknown) {
+        errors.push({
+          filename: entry.name,
+          message: `unable to remove stale generated file: ${getErrorMessage(error)}`
+        })
+      }
+    })
+  )
 }
 
-async function cleanTemporaryFiles(
-  generatedDirectory: string,
-  errors: GallerySyncError[]
-): Promise<void> {
-  const entries = await readdir(generatedDirectory, { withFileTypes: true })
-
-  await Promise.all(entries.map(async (entry) => {
-    if (!entry.isFile() || !entry.name.endsWith('.tmp')) {
-      return
-    }
-
-    try {
-      await rm(join(generatedDirectory, entry.name), { force: true })
-    } catch (error: unknown) {
-      errors.push({
-        filename: entry.name,
-        message: `unable to remove temporary file: ${getErrorMessage(error)}`
-      })
-    }
-  }))
-}
-
-function createOutputFiles(id: string, revision: string, generatedDirectory: string) {
+function createOutputFiles(
+  id: string,
+  revision: string,
+  generatedDirectory: string
+) {
   return Object.fromEntries(
     Object.entries(IMAGE_VARIANTS).map(([variant, specification]) => {
       const filename = `${id}-${revision}-${specification.suffix}.${GENERATED_IMAGE_EXTENSION}`
 
-      return [variant, {
-        path: join(generatedDirectory, filename),
-        url: `/media/${filename}`
-      }]
+      return [
+        variant,
+        {
+          path: join(generatedDirectory, filename),
+          url: `/media/${filename}`
+        }
+      ]
     })
-  ) as Record<ImageVariant, { path: string, url: string }>
+  ) as Record<ImageVariant, { path: string; url: string }>
 }
 
 function generatedFilenameFromUrl(url: string): string | undefined {
@@ -573,10 +648,15 @@ function generatedFilenameFromUrl(url: string): string | undefined {
   return GENERATED_IMAGE_FILENAME_PATTERN.test(filename) ? filename : undefined
 }
 
-function sourcesMatch(left: PhotoSourceState, right: PhotoSourceState): boolean {
-  return left.size === right.size
-    && left.mtimeMs === right.mtimeMs
-    && left.revision === right.revision
+function sourcesMatch(
+  left: PhotoSourceState,
+  right: PhotoSourceState
+): boolean {
+  return (
+    left.size === right.size &&
+    left.mtimeMs === right.mtimeMs &&
+    left.revision === right.revision
+  )
 }
 
 function comparePhotos(left: PhotoIndexItem, right: PhotoIndexItem): number {
@@ -606,11 +686,12 @@ function shortHash(value: string): string {
 }
 
 function normalizeDate(value: unknown): string | undefined {
-  const date = value instanceof Date
-    ? value
-    : typeof value === 'string' || typeof value === 'number'
-      ? new Date(value)
-      : undefined
+  const date =
+    value instanceof Date
+      ? value
+      : typeof value === 'string' || typeof value === 'number'
+        ? new Date(value)
+        : undefined
 
   return date && !Number.isNaN(date.getTime()) ? date.toISOString() : undefined
 }
@@ -625,11 +706,12 @@ function toCleanString(value: unknown): string | undefined {
 }
 
 function toPositiveNumber(value: unknown): number | undefined {
-  const number = typeof value === 'number'
-    ? value
-    : typeof value === 'string'
-      ? Number(value)
-      : undefined
+  const number =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value)
+        : undefined
 
   return number !== undefined && Number.isFinite(number) && number > 0
     ? number
@@ -651,7 +733,10 @@ function isLoadedGalleryIndex(value: unknown): value is LoadedGalleryIndex {
     return false
   }
 
-  if (!Number.isInteger(value.pipelineVersion) || !Array.isArray(value.photos)) {
+  if (
+    !Number.isInteger(value.pipelineVersion) ||
+    !Array.isArray(value.photos)
+  ) {
     return false
   }
 
@@ -673,14 +758,16 @@ function isPhotoIndexItem(value: unknown): value is PhotoIndexItem {
     return false
   }
 
-  return ['id', 'filename', 'thumbnail', 'preview'].every(
-    key => typeof value[key] === 'string'
+  return (
+    ['id', 'filename', 'thumbnail', 'preview'].every(
+      key => typeof value[key] === 'string'
+    ) &&
+    isPositiveFiniteNumber(value.width) &&
+    isPositiveFiniteNumber(value.height) &&
+    isNonNegativeFiniteNumber(value.source.size) &&
+    isNonNegativeFiniteNumber(value.source.mtimeMs) &&
+    typeof value.source.revision === 'string'
   )
-    && isPositiveFiniteNumber(value.width)
-    && isPositiveFiniteNumber(value.height)
-    && isNonNegativeFiniteNumber(value.source.size)
-    && isNonNegativeFiniteNumber(value.source.mtimeMs)
-    && typeof value.source.revision === 'string'
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
