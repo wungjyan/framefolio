@@ -33,7 +33,10 @@
   "devDependencies": {
     "@nuxt/eslint": "^1.17.0",
     "@types/node": "^26.3.0",
+    "@vitejs/plugin-vue": "^6.0.9",
+    "@vue/test-utils": "^2.5.0",
     "eslint": "^10.10.0",
+    "happy-dom": "^20.14.5",
     "prettier": "^3.9.6",
     "puppeteer": "^25.9.0",
     "typescript": "^5.9.3",
