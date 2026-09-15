@@ -96,22 +96,77 @@ describe('shared admin link styling', () => {
   it('centres its label and drops the underline for both <a> and <button>', async () => {
     // `.admin-link` styles an <a> in the header and a <button> in the uploader.
     // An <a> is inline by default, so without an explicit `display` its text
-    // sits at the top of the box and it keeps its underline — which made the
-    // header's two controls look misaligned. This guards the declarations that
-    // fix that, since a CSS-only fix has no runtime assertion.
-    const { readFile } = await import('node:fs/promises')
-    const css = await readFile('app/assets/css/admin.css', 'utf8')
-    const block = /\.admin-link \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    // sits at the top of the box and it keeps its underline, which made the
+    // header's two controls look misaligned.
+    const css = await readAdminCss()
+    const block = cssRule(css, '.admin-link')
 
     expect(block).toMatch(/display:\s*inline-flex/)
     expect(block).toMatch(/align-items:\s*center/)
     expect(block).toMatch(/justify-content:\s*center/)
     expect(block).toMatch(/text-decoration:\s*none/)
-    // The mobile tap-target requirement applies to these controls too.
-    expect(block).toMatch(/min-height:\s*2\.75rem/)
+  })
+
+  it('has no horizontal padding so right-aligned text meets the content edge', async () => {
+    // The header controls are right-aligned. Padding here would push their text
+    // inside the content edge, so it would no longer line up with the panels
+    // below (it was 8px off). The gap between the links comes from the flex gap
+    // on their container instead.
+    const css = await readAdminCss()
+    const block = cssRule(css, '.admin-link')
+
+    expect(block).toMatch(/padding:\s*0\s*;/)
+    expect(block).not.toMatch(/padding:\s*0\s+0\.5rem/)
+  })
+
+  it('keeps the header controls shorter than form buttons', async () => {
+    // The gallery header's icons are 28px; using the 44px form-button height
+    // here made the admin header 57px tall and top-heavy. The 28px target is
+    // still easy to hit because the two links sit side by side with a gap.
+    const css = await readAdminCss()
+    const block = cssRule(css, '.admin-header__actions .admin-link')
+
+    expect(block).toMatch(/min-height:\s*1\.75rem/)
+  })
+
+  it('aligns the header to the top like the public gallery header', async () => {
+    // `baseline` and `center` both pushed the title down by the height
+    // difference with the taller controls. `flex-start` matches
+    // `.gallery-header` and keeps the two pages' titles on the same line.
+    const css = await readAdminCss()
+    const block = cssRule(css, '.admin-header')
+
+    expect(block).toMatch(/align-items:\s*flex-start/)
+  })
+
+  it('uses the same top padding as the public gallery header', async () => {
+    // The gallery uses --gallery-space-md below 48rem and 2rem above it. The
+    // admin shell must match, or the two pages' titles start at different
+    // heights (it was ~100px off when this used --gallery-space-lg).
+    const css = await readAdminCss()
+    const shell = cssRule(css, '.admin-shell')
+
+    expect(shell).toMatch(/padding:\s*var\(--gallery-space-md\)/)
+    expect(shell).not.toMatch(
+      /padding:\s*var\(--gallery-space-lg\)\s+var\(--gallery-gutter\)\s*;/
+    )
+
+    const desktop =
+      /@media \(min-width: 48rem\) \{\s*\.admin-shell \{([^}]*)\}/.exec(
+        css
+      )?.[1] ?? ''
+    expect(desktop).toMatch(/padding-top:\s*2rem/)
+  })
+
+  it('tightens only the first section under the header', async () => {
+    // The first section sits directly under the header rule, so the full section
+    // spacing left ~120px of dead air and made the page look top-heavy.
+    const css = await readAdminCss()
+    const block = cssRule(css, '.admin-section:first-of-type')
+
+    expect(block).toMatch(/margin-top:\s*var\(--gallery-space-md\)/)
   })
 })
-
 describe('AdminLogin disabled state', () => {
   it('explains a 404 as "admin not configured" rather than a bad password', async () => {
     // A 404 means the whole admin feature is switched off. Mapping it to a
@@ -458,3 +513,20 @@ describe('AdminPhotoList', () => {
     expect(wrapper.text()).toContain('—')
   })
 })
+
+/** Read the admin stylesheet under test. */
+async function readAdminCss(): Promise<string> {
+  const { readFile } = await import('node:fs/promises')
+  return readFile('app/assets/css/admin.css', 'utf8')
+}
+
+/**
+ * Extract the declaration block for an exact selector.
+ *
+ * Anchored to the start of a line so `.admin-link` does not also match
+ * `.admin-header__actions .admin-link`.
+ */
+function cssRule(css: string, selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`^${escaped} \\{([^}]*)\\}`, 'm').exec(css)?.[1] ?? ''
+}

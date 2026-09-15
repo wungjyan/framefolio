@@ -12,15 +12,35 @@
 
 .admin-shell {
   width: min(100%, 72rem);
-  padding: var(--gallery-space-lg) var(--gallery-gutter);
+  /* Top padding matches the public gallery's header (`.gallery-header` uses
+     `--gallery-space-md` on narrow screens and 2rem from 48rem up), so the two
+     pages put their wordmark and title on the same line. Using
+     `--gallery-space-lg` here instead produced ~120px of dead space at wide
+     viewports, which is a section separator, not a page margin.
+     The bottom keeps the large spacing: it separates the last section from the
+     end of the page rather than pushing the header down. */
+  padding: var(--gallery-space-md) var(--gallery-gutter)
+    var(--gallery-space-lg);
   margin: 0 auto;
+}
+
+@media (min-width: 48rem) {
+  .admin-shell {
+    padding-top: 2rem;
+  }
 }
 
 .admin-header {
   display: flex;
   flex-wrap: wrap;
   gap: var(--gallery-space-sm);
-  align-items: baseline;
+  /* `flex-start`, matching `.gallery-header`, so the title's top lines up with
+     the gallery's wordmark. `baseline` looked reasonable in isolation but the
+     44px-tall buttons pushed the title 13px down, and `center` did the same for
+     the same reason: the title is shorter than the controls. Flex-start makes
+     both boxes start on the same line, which is the pattern the gallery already
+     uses. */
+  align-items: flex-start;
   justify-content: space-between;
   padding-bottom: var(--gallery-space-sm);
   border-bottom: 1px solid var(--gallery-surface-active);
@@ -41,6 +61,14 @@
 
 .admin-section {
   margin-top: var(--gallery-space-lg);
+}
+
+/* The first section sits directly under the header rule, so it needs less space
+   than the gap between two sections: 120px of dead air there made the page look
+   top-heavy. `:first-of-type` is safe here because the header and the notices
+   are not <section> elements. */
+.admin-section:first-of-type {
+  margin-top: var(--gallery-space-md);
 }
 
 .admin-section__title {
@@ -115,14 +143,17 @@
 .admin-link {
   /* Both an <a> and a <button> use this class. An <a> is inline by default, so
      it needs `inline-flex` to centre its label the way a <button> already does
-     — otherwise its text sits at the top of the 44px box and the two controls
-     look misaligned. `text-decoration: none` removes the underline an anchor
-     gets by default, so both read as the same kind of control. */
+     — otherwise its text sits at the top of the box and the two controls look
+     misaligned. `text-decoration: none` removes the underline an anchor gets by
+     default, so both read as the same kind of control. */
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.75rem;
-  padding: 0 0.5rem;
+  /* No horizontal padding: the header's controls are right-aligned, so padding
+     would push their text inside the content edge and it would no longer line up
+     with the panels below. The visual gap between the links comes from the flex
+     `gap` on their container. */
+  padding: 0;
   font: inherit;
   font-size: 0.8125rem;
   color: var(--gallery-muted);
@@ -130,6 +161,15 @@
   cursor: pointer;
   background: transparent;
   border: 0;
+}
+
+/* Header controls are secondary navigation, not primary actions, so they do not
+   need a 44px touch target the way form buttons do. A smaller height keeps the
+   header compact (37px instead of 57px) and matches the public gallery, whose
+   header icons are 28px. They remain easy to hit: the two links sit side by side
+   with a gap, and they are not the main way to operate this page. */
+.admin-header__actions .admin-link {
+  min-height: 1.75rem;
 }
 
 .admin-link:hover {
