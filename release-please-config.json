@@ -1,6 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "bootstrap-sha": "b80652ad6269e65e42c7805250af90aca6d2de43",
+  "include-component-in-tag": false,
   "include-v-in-tag": false,
   "packages": {
     ".": {
@@ -21,19 +22,23 @@
         },
         {
           "type": "docs",
-          "section": "Documentation"
+          "section": "Documentation",
+          "hidden": true
         },
         {
           "type": "refactor",
-          "section": "Code Refactoring"
+          "section": "Code Refactoring",
+          "hidden": true
         },
         {
           "type": "build",
-          "section": "Build System"
+          "section": "Build System",
+          "hidden": true
         },
         {
           "type": "ci",
-          "section": "Continuous Integration"
+          "section": "Continuous Integration",
+          "hidden": true
         },
         {
           "type": "test",
