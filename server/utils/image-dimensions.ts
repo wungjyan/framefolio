@@ -128,12 +128,18 @@ function readJpegDimensions(bytes: Uint8Array): DimensionParseResult {
 
     const marker = bytes[offset + 1] as number
 
-    // Padding and standalone markers carry no length.
-    if (
-      marker === 0xff ||
-      marker === 0x01 ||
-      (marker >= 0xd0 && marker <= 0xd9)
-    ) {
+    // A run of 0xFF bytes before a marker is legal padding, per the JPEG spec:
+    // `FF FF FF C0` means "marker 0xC0, preceded by two fill bytes". Advance a
+    // single byte so the next 0xFF is re-examined as a potential marker prefix;
+    // skipping 2 here would swallow the real marker code whenever the run has an
+    // odd length. A lone 0xFF followed by a non-0xFF byte is that marker's prefix.
+    if (marker === 0xff) {
+      offset += 1
+      continue
+    }
+
+    // Standalone markers carry no length: TEM (0x01) and RST/SOI/EOI (0xD0-0xD9).
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd9)) {
       offset += 2
       continue
     }

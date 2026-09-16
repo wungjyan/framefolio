@@ -446,3 +446,80 @@ function box(type: string, payload: Buffer): Buffer {
   header.write(type, 4, 'ascii')
   return Buffer.concat([header, payload])
 }
+
+describe('JPEG fill bytes before a marker', () => {
+  it('finds the frame header when odd numbers of fill bytes precede it', async () => {
+    // The JPEG spec permits extra 0xFF bytes between markers: `FF FF C0` means
+    // "0xC0, preceded by one fill byte". Advancing 2 bytes on a run of 0xFF
+    // swallowed the real marker code whenever the run had an odd length, so a
+    // one-byte fill made the frame header invisible. Odd counts are the ones
+    // that expose it; an even count pairs up and happens to work.
+    for (const fills of [1, 3, 5]) {
+      const path = join(root, `fill-${fills}.jpg`)
+      await writeFile(path, createJpegWithFillBeforeFrame(321, 123, fills))
+
+      const result = await readImageHeader(path)
+
+      expect(result.dimensions, `${fills} fill byte(s)`).toEqual({
+        width: 321,
+        height: 123
+      })
+    }
+  })
+
+  it('still reads a frame header with no fill bytes', async () => {
+    const path = join(root, 'fill-0.jpg')
+    await writeFile(path, createJpegWithFillBeforeFrame(321, 123, 0))
+
+    const result = await readImageHeader(path)
+
+    expect(result.dimensions).toEqual({ width: 321, height: 123 })
+  })
+
+  it('tolerates a long run of fill bytes', async () => {
+    // Long runs occur in files written by encoders that pad to a boundary.
+    const path = join(root, 'fill-many.jpg')
+    await writeFile(path, createJpegWithFillBeforeFrame(321, 123, 17))
+
+    const result = await readImageHeader(path)
+
+    expect(result.dimensions).toEqual({ width: 321, height: 123 })
+  })
+})
+
+/** A JPEG whose SOF marker is preceded by `fills` extra 0xFF bytes. */
+function createJpegWithFillBeforeFrame(
+  width: number,
+  height: number,
+  fills: number
+): Buffer {
+  return Buffer.concat([
+    Buffer.from([0xff, 0xd8]), // SOI
+    // A minimal APP0 segment so the scan has something to skip first.
+    Buffer.from([0xff, 0xe0, 0x00, 0x10]),
+    Buffer.alloc(14),
+    Buffer.from([0xff]),
+    Buffer.alloc(fills, 0xff), // the fill run under test
+    Buffer.from([
+      0xc0,
+      0x00,
+      0x11,
+      0x08,
+      (height >> 8) & 0xff,
+      height & 0xff,
+      (width >> 8) & 0xff,
+      width & 0xff,
+      0x03,
+      0x01,
+      0x11,
+      0x00,
+      0x02,
+      0x11,
+      0x01,
+      0x03,
+      0x11,
+      0x01
+    ]),
+    Buffer.from([0xff, 0xd9]) // EOI
+  ])
+}
