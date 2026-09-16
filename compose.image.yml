@@ -7,8 +7,11 @@ name: framefolio
 # area or fall back to local storage without the operator noticing.
 x-framefolio-environment: &framefolio-environment
   NUXT_GALLERY_DATA_DIR: /app/data
-  # Admin area. When FRAMEFOLIO_ADMIN_PASSWORD is unset, /admin and
-  # /api/admin/* return 404 and the admin area is effectively absent.
+  # Admin area. When FRAMEFOLIO_ADMIN_PASSWORD is unset, every /api/admin/*
+  # route returns 404, so the admin API is effectively absent. The /admin page
+  # itself still returns 200 and explains that the admin area is not enabled —
+  # telling the visitor is the point, since a 404 there would leave them with no
+  # clue what to configure.
   FRAMEFOLIO_ADMIN_PASSWORD: ${FRAMEFOLIO_ADMIN_PASSWORD:-}
   FRAMEFOLIO_SESSION_SECRET: ${FRAMEFOLIO_SESSION_SECRET:-}
   FRAMEFOLIO_SESSION_TTL: ${FRAMEFOLIO_SESSION_TTL:-}

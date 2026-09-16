@@ -64,13 +64,31 @@ RUN mkdir -p /app/data/originals /app/data/generated /app/data/incoming \
       /app/data/.trash /app/data/.state \
   && chown -R node:node /app
 
-# Fail the build if the running user cannot READ the sync script and its
-# imports. Files with restrictive permissions on the build host (0600, e.g. from
-# a local umask) would otherwise surface only as an EACCES inside the spawned
-# sync child process at the first "Sync now", not at build time.
-RUN su node -c 'test -r scripts/gallery-sync.ts' \
-  && su node -c 'test -r shared/node/gallery-lock.ts' \
-  && su node -c 'test -r .output/server/index.mjs'
+# Make the code world-readable, independently of its owner.
+#
+# `chown node:node` above is not enough. Compose overrides USER with
+# `PUID:PGID`, and a NAS commonly runs as something like 1026:100. Ownership by
+# uid 1000 then grants that user nothing, so `scripts/` and `shared/` become
+# unreadable and every sync fails with EACCES — both the button and the CLI,
+# since both spawn the same script.
+#
+# `a+rX` adds read for all, plus execute only where it already applies (the X),
+# so directories stay traversable and no stray file becomes executable. Only
+# /app/data needs to be writable, and that is a bind mount whose host
+# permissions decide access, not the image.
+RUN chmod -R a+rX /app/package.json /app/scripts /app/shared /app/.output \
+      /app/node_modules
+
+# Fail the build if any code file is unreadable by a user other than its owner.
+#
+# The previous guard ran as `node`, which is exactly the owner, so it passed
+# even for 0600 files and could not catch this. Checking the permission bits
+# instead answers the real question: can an arbitrary PUID read this?
+RUN if find /app/package.json /app/scripts /app/shared /app/.output \
+      ! -perm -004 -print -quit | grep -q .; then \
+      echo "ERROR: code is not world-readable, so a PUID other than 1000 cannot run the sync" >&2; \
+      exit 1; \
+    fi
 
 USER node
 
