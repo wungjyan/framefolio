@@ -467,17 +467,21 @@ docker compose -f compose.image.yml logs gallery
 <details>
 <summary>Show publishing instructions</summary>
 
-After signing in to Docker Hub, use the publishing script to build and push a multi-platform image:
+GitHub Actions publishes official releases automatically. After code reaches `main`, Release Please creates or updates a release pull request. Merging that pull request creates the Git tag and GitHub Release, then publishes the matching version and `latest` Docker images.
+
+See [Release process](./docs/RELEASING.md) for the one-time repository setup, normal release steps, and failure recovery.
+
+The local script is only an emergency fallback. It builds the current working tree instead of checking out the matching Git tag, so do not use it to overwrite an existing version with different source code:
 
 ```bash
 docker login
-./scripts/docker-publish.sh 1.0.0
+./scripts/docker-publish.sh 1.1.0
 ```
 
 By default, it pushes:
 
 ```text
-wungjyan/framefolio:1.0.0
+wungjyan/framefolio:1.1.0
 wungjyan/framefolio:latest
 ```
 
@@ -487,7 +491,7 @@ Override the repository, build platforms, or npm registry with environment varia
 IMAGE_REPOSITORY=example/framefolio \
 PLATFORMS=linux/amd64,linux/arm64 \
 NPM_REGISTRY=https://registry.npmjs.org \
-./scripts/docker-publish.sh 1.0.0
+./scripts/docker-publish.sh 1.1.0
 ```
 
 Set `PUBLISH_LATEST=false` to publish only the explicit version tag.

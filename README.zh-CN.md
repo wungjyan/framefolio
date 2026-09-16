@@ -467,17 +467,21 @@ docker compose -f compose.image.yml logs gallery
 <details>
 <summary>展开发布说明</summary>
 
-登录 Docker Hub 后，可通过发布脚本构建并推送多架构镜像：
+正式版本由 GitHub Actions 自动发布。代码进入 `main` 后，Release Please 会创建或更新一个 Release PR；合并这个 PR 后，自动创建 Git 标签和 GitHub Release，并推送对应版本及 `latest` Docker 镜像。
+
+首次启用所需的仓库设置、日常发布步骤和失败恢复方式见 [发布流程](./docs/RELEASING.zh-CN.md)。
+
+本地脚本仅作为紧急备用。它会构建当前工作区，而不是自动检出对应的 Git 标签，因此不要用它以不同代码覆盖已经发布的版本：
 
 ```bash
 docker login
-./scripts/docker-publish.sh 1.0.0
+./scripts/docker-publish.sh 1.1.0
 ```
 
 默认推送：
 
 ```text
-wungjyan/framefolio:1.0.0
+wungjyan/framefolio:1.1.0
 wungjyan/framefolio:latest
 ```
 
@@ -487,7 +491,7 @@ wungjyan/framefolio:latest
 IMAGE_REPOSITORY=example/framefolio \
 PLATFORMS=linux/amd64,linux/arm64 \
 NPM_REGISTRY=https://registry.npmjs.org \
-./scripts/docker-publish.sh 1.0.0
+./scripts/docker-publish.sh 1.1.0
 ```
 
 设置 `PUBLISH_LATEST=false` 可只推送指定版本标签。
