@@ -58,16 +58,15 @@ function onCancel(event: Event): void {
 <template>
   <dialog ref="dialog" class="admin-dialog" @cancel="onCancel">
     <form method="dialog" class="admin-dialog__body" @submit.prevent>
-      <h2 class="admin-dialog__title">删除照片</h2>
+      <h2 class="admin-dialog__title">移入回收站</h2>
 
       <p class="admin-dialog__text">
-        将 <strong>{{ filename }}</strong> 移入回收站？
+        确定要将 <strong>{{ filename }}</strong> 移入回收站吗？
       </p>
 
       <p class="admin-dialog__note">
-        原图会移入 <code>data/.trash/</code>，可以恢复。
-        <strong>照片在同步之前仍会显示在网站上</strong>，
-        点击「立即同步」后才会真正移除。
+        原图不会立即永久删除，仍可手动恢复。
+        <strong>完成同步前，照片会继续显示在公开画廊中。</strong>
       </p>
 
       <div class="admin-dialog__actions">
