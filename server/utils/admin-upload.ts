@@ -11,7 +11,8 @@ import { extname } from 'node:path'
 
 import {
   DIMENSION_HEADER_BYTES,
-  readImageDimensions,
+  MAX_DIMENSION_HEADER_BYTES,
+  parseImageDimensions,
   type ImageDimensions
 } from './image-dimensions'
 
@@ -87,11 +88,16 @@ export async function validateUploadedImage(
 }
 
 /**
- * Read the format and dimensions from one header read.
+ * Read the format and dimensions, reading more of the file while needed.
  *
- * Reading a larger prefix than the magic bytes alone lets the dimension parsers
- * work, while `detectImageFormat` keeps using just the first bytes for the
- * format check.
+ * The size fields are not always in the first block: a JPEG's SOF marker can sit
+ * behind several hundred kilobytes of ICC profile segments, which is what a photo
+ * exported from an image editor looks like. A single fixed-size read would report
+ * those as unmeasurable and the upload would be rejected, so the parser is
+ * consulted repeatedly with an increasing prefix, up to
+ * `MAX_DIMENSION_HEADER_BYTES`.
+ *
+ * The bound keeps a crafted file from making the server read indefinitely.
  */
 export async function readImageHeader(filePath: string): Promise<{
   format?: ImageFormat
@@ -100,18 +106,61 @@ export async function readImageHeader(filePath: string): Promise<{
   const handle = await open(filePath, 'r')
 
   try {
-    const buffer = Buffer.alloc(DIMENSION_HEADER_BYTES)
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
-    const bytes = buffer.subarray(0, bytesRead)
-    const format = sniffFormat(bytes)
+    const first = await readPrefix(handle, DIMENSION_HEADER_BYTES)
+    const format = sniffFormat(first)
 
-    return {
-      ...(format ? { format } : {}),
-      ...(format ? { dimensions: readImageDimensions(bytes, format) } : {})
+    if (!format) {
+      return {}
+    }
+
+    let size = DIMENSION_HEADER_BYTES
+    let bytes = first
+
+    while (true) {
+      const result = parseImageDimensions(bytes, format)
+
+      if (result.status === 'ok') {
+        return { format, dimensions: result.dimensions }
+      }
+
+      if (result.status === 'absent') {
+        // The fields are definitively not where they should be.
+        return { format }
+      }
+
+      // `need-more`: read a larger prefix, unless the file or the cap is reached.
+      const nextSize = Math.min(size * 2, MAX_DIMENSION_HEADER_BYTES)
+      const more = await readPrefix(handle, nextSize)
+
+      if (more.length <= bytes.length) {
+        // The file is exhausted; the header is genuinely incomplete.
+        return { format }
+      }
+
+      bytes = more
+      size = nextSize
+
+      if (size >= MAX_DIMENSION_HEADER_BYTES) {
+        // Cap reached with the parser still asking: give up rather than read on.
+        const finalResult = parseImageDimensions(bytes, format)
+        return finalResult.status === 'ok'
+          ? { format, dimensions: finalResult.dimensions }
+          : { format }
+      }
     }
   } finally {
     await handle.close()
   }
+}
+
+/** Read up to `size` bytes from the start of an open file. */
+async function readPrefix(
+  handle: Awaited<ReturnType<typeof open>>,
+  size: number
+): Promise<Buffer> {
+  const buffer = Buffer.alloc(size)
+  const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
+  return buffer.subarray(0, bytesRead)
 }
 
 /** Sniff the leading bytes; returns undefined when nothing matches. */

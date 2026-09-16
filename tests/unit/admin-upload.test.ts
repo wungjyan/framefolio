@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -272,3 +272,177 @@ describe('pixel dimensions from the header', () => {
     expect(result.dimensions).toEqual({ width: 100, height: 50 })
   })
 })
+
+describe('JPEG dimensions behind large metadata segments', () => {
+  it('finds the frame header past the first read block', async () => {
+    // A photo exported from an image editor can carry hundreds of KB of ICC
+    // profile, pushing the SOF marker well past 64 KiB. Reading a fixed prefix
+    // made the parser give up, and the upload endpoint then rejected a file that
+    // sharp handles fine.
+    const { DIMENSION_HEADER_BYTES } =
+      await import('../../server/utils/image-dimensions')
+
+    const path = join(root, 'big-icc.jpg')
+    await writeFile(
+      path,
+      createJpegWithApp2({ width: 321, height: 123, segments: 4 })
+    )
+
+    // Confirm the fixture really does push the frame header past one block,
+    // otherwise this test would pass even with the old fixed-size read.
+    const raw = await readFile(path)
+    const sofOffset = raw.indexOf(Buffer.from([0xff, 0xc0]))
+    expect(sofOffset).toBeGreaterThan(DIMENSION_HEADER_BYTES)
+
+    const result = await readImageHeader(path)
+
+    expect(result.format).toBe('jpeg')
+    expect(result.dimensions).toEqual({ width: 321, height: 123 })
+  })
+
+  it('still reads a JPEG whose metadata fits in the first block', async () => {
+    const path = join(root, 'small.jpg')
+    await writeFile(
+      path,
+      createJpegWithApp2({ width: 40, height: 30, segments: 0 })
+    )
+
+    const result = await readImageHeader(path)
+
+    expect(result.dimensions).toEqual({ width: 40, height: 30 })
+  })
+
+  it('gives up on a header that never contains a frame marker', async () => {
+    // Protects against an unbounded read on a crafted file.
+    const path = join(root, 'no-frame.jpg')
+    const parts = [Buffer.from([0xff, 0xd8])]
+    for (let index = 0; index < 40; index += 1) {
+      const payload = Buffer.alloc(65533, 0x41)
+      const segment = Buffer.alloc(4 + payload.length)
+      segment[0] = 0xff
+      segment[1] = 0xe2
+      segment.writeUInt16BE(payload.length + 2, 2)
+      parts.push(segment)
+    }
+    parts.push(Buffer.from([0xff, 0xd9]))
+    await writeFile(path, Buffer.concat(parts))
+
+    const result = await readImageHeader(path)
+
+    // The format is still recognised, but no size could be measured, so the
+    // caller rejects the upload rather than assuming there is no limit.
+    expect(result.format).toBe('jpeg')
+    expect(result.dimensions).toBeUndefined()
+  })
+})
+
+describe('ISO-BMFF (AVIF) dimensions', () => {
+  it('reads width and height from the ispe payload, not one field early', async () => {
+    // The payload starts with a 4-byte version/flags field, so the dimensions are
+    // at payload+4 and payload+8. Reading from +8 instead reported the height as
+    // the width and pulled the next four bytes in as the height: a real
+    // 1234x567 AVIF came out as 567x16.
+    const path = join(root, 'image.avif')
+    await writeFile(path, createIspeFixture(1234, 567))
+
+    const result = await readImageHeader(path)
+
+    expect(result.format).toBe('avif')
+    expect(result.dimensions).toEqual({ width: 1234, height: 567 })
+  })
+
+  it('does not transpose a tall image', async () => {
+    // Guards against a width/height swap, which a square fixture would hide.
+    const path = join(root, 'tall.avif')
+    await writeFile(path, createIspeFixture(567, 1234))
+
+    const result = await readImageHeader(path)
+
+    expect(result.dimensions).toEqual({ width: 567, height: 1234 })
+  })
+})
+
+/** Build a JPEG with N maximum-size APP2 segments before the frame header. */
+function createJpegWithApp2(input: {
+  width: number
+  height: number
+  segments: number
+}): Buffer {
+  const sof = Buffer.from([
+    0xff,
+    0xc0,
+    0x00,
+    0x11,
+    0x08,
+    (input.height >> 8) & 0xff,
+    input.height & 0xff,
+    (input.width >> 8) & 0xff,
+    input.width & 0xff,
+    0x03,
+    0x01,
+    0x11,
+    0x00,
+    0x02,
+    0x11,
+    0x01,
+    0x03,
+    0x11,
+    0x01
+  ])
+
+  const parts = [Buffer.from([0xff, 0xd8])]
+
+  for (let index = 0; index < input.segments; index += 1) {
+    const payload = Buffer.alloc(65533, 0x41)
+    payload.write('ICC_PROFILE\0', 0, 'ascii')
+    const segment = Buffer.alloc(4 + payload.length)
+    segment[0] = 0xff
+    segment[1] = 0xe2
+    segment.writeUInt16BE(payload.length + 2, 2)
+    payload.copy(segment, 4)
+    parts.push(segment)
+  }
+
+  parts.push(sof, Buffer.from([0xff, 0xd9]))
+
+  return Buffer.concat(parts)
+}
+
+/**
+ * Minimal ISO-BMFF container with an `ispe` box inside a `meta` box, matching the
+ * structure a real AVIF uses for its size.
+ */
+function createIspeFixture(width: number, height: number): Buffer {
+  const ispePayload = Buffer.alloc(12)
+  ispePayload.writeUInt32BE(0, 0) // version + flags
+  ispePayload.writeUInt32BE(width, 4)
+  ispePayload.writeUInt32BE(height, 8)
+
+  const ispe = box('ispe', ispePayload)
+
+  const metaPayload = Buffer.concat([
+    Buffer.alloc(4), // version + flags
+    ispe
+  ])
+  const meta = box('meta', metaPayload)
+
+  const ftypPayload = Buffer.concat([
+    Buffer.from('avif', 'ascii'),
+    Buffer.alloc(4)
+  ])
+
+  return Buffer.concat([
+    box('ftyp', ftypPayload),
+    meta,
+    // Padding so a truncated read can still be detected by the parser.
+    Buffer.alloc(16)
+  ])
+}
+
+/** Wrap a payload in an ISO-BMFF box with a 32-bit size. */
+function box(type: string, payload: Buffer): Buffer {
+  const header = Buffer.alloc(8)
+  header.writeUInt32BE(payload.length + 8, 0)
+  header.write(type, 4, 'ascii')
+  return Buffer.concat([header, payload])
+}
