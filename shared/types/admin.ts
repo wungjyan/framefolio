@@ -132,6 +132,8 @@ export interface AdminUploadResponse {
   filename: string
   bytes: number
   format?: string
+  width?: number
+  height?: number
 }
 
 /** Response of `DELETE /api/admin/photos/:filename`. */

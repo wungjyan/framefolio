@@ -74,6 +74,28 @@ export function resolveEffectiveSource(config: StorageConfig): StorageSource {
 }
 
 /**
+ * Resolve which storage source is actually in effect.
+ *
+ * The runtime choice written by the admin UI wins over the environment default,
+ * so switching sources needs no restart. This lives here, rather than being
+ * repeated per endpoint, because having one caller read the persisted state and
+ * another forget to is exactly how the admin status endpoint ended up reporting
+ * a different source from the public API.
+ */
+export function resolveActiveSource(input: {
+  storage: StorageConfig
+  /** The persisted selection, if the admin UI has ever written one. */
+  persisted?: StorageSource
+}): { requested: StorageSource; effective: StorageSource } {
+  const requested = input.persisted ?? input.storage.source
+
+  return {
+    requested,
+    effective: resolveEffectiveSource({ ...input.storage, source: requested })
+  }
+}
+
+/**
  * Build the S3 client configuration.
  *
  * Returns undefined unless object storage is fully configured, so callers treat

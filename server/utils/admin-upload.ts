@@ -9,6 +9,12 @@
 import { open } from 'node:fs/promises'
 import { extname } from 'node:path'
 
+import {
+  DIMENSION_HEADER_BYTES,
+  readImageDimensions,
+  type ImageDimensions
+} from './image-dimensions'
+
 const MAGIC_BYTES_TO_READ = 32
 
 /** Extensions we accept, mapped to the container formats we can detect. */
@@ -28,6 +34,14 @@ export interface UploadValidation {
   /** Reason the upload was rejected, suitable for showing to the admin user. */
   reason?: string
   format?: ImageFormat
+  /**
+   * Pixel dimensions, when they could be read from the header.
+   *
+   * Undefined means "could not be determined". Callers enforcing a pixel limit
+   * must treat that as a rejection rather than as "no limit", otherwise a file
+   * with an unparseable header would bypass the check.
+   */
+  dimensions?: ImageDimensions
 }
 
 /**
@@ -51,20 +65,53 @@ export async function validateUploadedImage(
     }
   }
 
-  const format = await detectImageFormat(filePath)
+  // One header read serves both checks.
+  const header = await readImageHeader(filePath)
 
-  if (!format) {
+  if (!header.format) {
     return { ok: false, reason: 'The file is not a recognisable image.' }
   }
 
-  if (!acceptedFormats.includes(format)) {
+  if (!acceptedFormats.includes(header.format)) {
     return {
       ok: false,
-      reason: `The file contents (${format}) do not match its extension (${extension}).`
+      reason: `The file contents (${header.format}) do not match its extension (${extension}).`
     }
   }
 
-  return { ok: true, format }
+  return {
+    ok: true,
+    format: header.format,
+    ...(header.dimensions ? { dimensions: header.dimensions } : {})
+  }
+}
+
+/**
+ * Read the format and dimensions from one header read.
+ *
+ * Reading a larger prefix than the magic bytes alone lets the dimension parsers
+ * work, while `detectImageFormat` keeps using just the first bytes for the
+ * format check.
+ */
+export async function readImageHeader(filePath: string): Promise<{
+  format?: ImageFormat
+  dimensions?: ImageDimensions
+}> {
+  const handle = await open(filePath, 'r')
+
+  try {
+    const buffer = Buffer.alloc(DIMENSION_HEADER_BYTES)
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
+    const bytes = buffer.subarray(0, bytesRead)
+    const format = sniffFormat(bytes)
+
+    return {
+      ...(format ? { format } : {}),
+      ...(format ? { dimensions: readImageDimensions(bytes, format) } : {})
+    }
+  } finally {
+    await handle.close()
+  }
 }
 
 /** Sniff the leading bytes; returns undefined when nothing matches. */

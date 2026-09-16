@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import {
   detectImageFormat,
+  readImageHeader,
   sanitizeUploadFilename,
   sniffFormat,
   validateUploadedImage
@@ -168,5 +169,106 @@ describe('upload filename sanitizing', () => {
 
   it('rejects an over-long name', () => {
     expect(sanitizeUploadFilename(`${'a'.repeat(256)}.jpg`)).toBeUndefined()
+  })
+})
+
+describe('pixel dimensions from the header', () => {
+  // The upload endpoint enforces FRAMEFOLIO_MAX_UPLOAD_PIXELS with these, so a
+  // wrong value either rejects a valid photo or lets an oversized one through.
+  it('reads JPEG dimensions without decoding the image', async () => {
+    const path = join(root, 'photo.jpg')
+    // Minimal SOI + SOF0 for 1234x567.
+    const jpeg = Buffer.from([
+      0xff,
+      0xd8, // SOI
+      0xff,
+      0xc0,
+      0x00,
+      0x11,
+      0x08, // SOF0, length 17, precision 8
+      0x02,
+      0x37, // height 567
+      0x04,
+      0xd2, // width 1234
+      0x03,
+      0x01,
+      0x11,
+      0x00,
+      0x02,
+      0x11,
+      0x01,
+      0x03,
+      0x11,
+      0x01
+    ])
+    await writeFile(path, jpeg)
+
+    const result = await readImageHeader(path)
+
+    expect(result.format).toBe('jpeg')
+    expect(result.dimensions).toEqual({ width: 1234, height: 567 })
+  })
+
+  it('reads PNG dimensions from IHDR', async () => {
+    const path = join(root, 'photo.png')
+    const png = Buffer.alloc(24)
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(png, 0)
+    png.writeUInt32BE(13, 8) // IHDR length
+    png.write('IHDR', 12, 'ascii')
+    png.writeUInt32BE(800, 16)
+    png.writeUInt32BE(600, 20)
+    await writeFile(path, png)
+
+    const result = await readImageHeader(path)
+
+    expect(result.format).toBe('png')
+    expect(result.dimensions).toEqual({ width: 800, height: 600 })
+  })
+
+  it('reads a lossless WebP size, which packs both values into 4 bytes', async () => {
+    const path = join(root, 'lossless.webp')
+    const webp = Buffer.alloc(30)
+    webp.write('RIFF', 0, 'ascii')
+    webp.writeUInt32LE(22, 4)
+    webp.write('WEBP', 8, 'ascii')
+    webp.write('VP8L', 12, 'ascii')
+    webp.writeUInt32LE(5, 16)
+    webp[20] = 0x2f // signature byte
+    // width-1 in bits 0..13, height-1 in bits 14..27
+    const packed = (200 - 1) | ((100 - 1) << 14)
+    webp.writeUInt32LE(packed >>> 0, 21)
+    await writeFile(path, webp)
+
+    const result = await readImageHeader(path)
+
+    expect(result.format).toBe('webp')
+    expect(result.dimensions).toEqual({ width: 200, height: 100 })
+  })
+
+  it('reports no dimensions for a file it cannot measure', async () => {
+    // The caller must treat this as a rejection: assuming no limit here would
+    // let a crafted file bypass the check entirely.
+    const path = join(root, 'broken.jpg')
+    await writeFile(path, Buffer.from([0xff, 0xd8, 0xff]))
+
+    const result = await readImageHeader(path)
+
+    expect(result.dimensions).toBeUndefined()
+  })
+
+  it('accepts a file within the pixel limit and reports its size', async () => {
+    const path = join(root, 'small.png')
+    const png = Buffer.alloc(24)
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(png, 0)
+    png.writeUInt32BE(13, 8)
+    png.write('IHDR', 12, 'ascii')
+    png.writeUInt32BE(100, 16)
+    png.writeUInt32BE(50, 20)
+    await writeFile(path, png)
+
+    const result = await validateUploadedImage(path, 'small.png')
+
+    expect(result.ok).toBe(true)
+    expect(result.dimensions).toEqual({ width: 100, height: 50 })
   })
 })

@@ -1,6 +1,6 @@
 import {
   isObjectStorageConfigured,
-  resolveEffectiveSource,
+  resolveActiveSource,
   resolveStorageConfig
 } from '../../../../shared/node/storage-config'
 import { readStorageState } from '../../../../shared/node/storage-state'
@@ -20,11 +20,14 @@ export default defineEventHandler(async event => {
   const { paths } = getAdminContext(event)
   const storage = resolveStorageConfig()
   const persisted = await readStorageState(paths.storageState)
-  const source = persisted?.source ?? storage.source
+  const active = resolveActiveSource({
+    storage,
+    ...(persisted ? { persisted: persisted.source } : {})
+  })
 
   const response: AdminStorageSourceResponse = {
-    source,
-    effectiveSource: resolveEffectiveSource({ ...storage, source }),
+    source: active.requested,
+    effectiveSource: active.effective,
     configured: isObjectStorageConfigured(storage),
     ...(storage.publicBaseUrl ? { publicBaseUrl: storage.publicBaseUrl } : {}),
     ...(persisted ? { updatedAt: persisted.updatedAt } : {})

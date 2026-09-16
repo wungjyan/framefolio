@@ -75,6 +75,36 @@ export default defineEventHandler(async event => {
       })
     }
 
+    // Enforce the pixel limit before publishing. Without this, a file small
+    // enough to pass the byte check can still be enormous in pixels: a 100 MB
+    // highly compressed image can decode to far more memory than the server
+    // has, and the sync that follows would be killed by the OOM killer.
+    //
+    // Dimensions come from the header, not from decoding, so this costs nothing
+    // and cannot itself be the thing that exhausts memory.
+    const dimensions = validation.dimensions
+
+    if (!dimensions) {
+      // Treat "cannot measure" as a rejection. Assuming no limit here would let
+      // a crafted header slip past the check entirely.
+      throw createError({
+        statusCode: 415,
+        statusMessage: 'Could not read the image dimensions.'
+      })
+    }
+
+    const pixels = dimensions.width * dimensions.height
+
+    if (pixels > config.maxUploadPixels) {
+      throw createError({
+        statusCode: 413,
+        statusMessage:
+          `Image is ${dimensions.width}x${dimensions.height} ` +
+          `(${formatMegapixels(pixels)}), which exceeds the ` +
+          `${formatMegapixels(config.maxUploadPixels)} limit.`
+      })
+    }
+
     // Overwrite semantics: uploading the same name replaces the original, which
     // the next sync detects as `changed` via size/mtime.
     await rename(stagingPath, targetPath)
@@ -82,7 +112,9 @@ export default defineEventHandler(async event => {
     const response: AdminUploadResponse = {
       filename,
       bytes: received,
-      format: validation.format
+      format: validation.format,
+      width: dimensions.width,
+      height: dimensions.height
     }
 
     return response
@@ -134,4 +166,23 @@ async function writeStreamWithLimit(
     reader.cancel().catch(() => {})
     throw error
   }
+}
+
+/**
+ * Render a pixel count for a message a human can act on.
+ *
+ * Small values keep a decimal (0.1 MP), but anything under 0.05 MP would round
+ * to "0.0", which reads like a bug rather than a limit, so those are shown as a
+ * plain pixel count instead.
+ */
+function formatMegapixels(pixels: number): string {
+  const megapixels = pixels / 1_000_000
+
+  if (megapixels < 0.05) {
+    return `${Math.round(pixels)} pixels`
+  }
+
+  return megapixels >= 10
+    ? `${Math.round(megapixels)} MP`
+    : `${megapixels.toFixed(1)} MP`
 }

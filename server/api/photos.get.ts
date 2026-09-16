@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { GALLERY_INDEX_FILENAME } from '../../shared/constants/gallery'
 import { resolveGalleryPaths } from '../../shared/node/gallery-paths'
 import {
-  resolveEffectiveSource,
+  resolveActiveSource,
   resolveStorageConfig
 } from '../../shared/node/storage-config'
 import { readStorageState } from '../../shared/node/storage-state'
@@ -30,16 +30,16 @@ export default defineEventHandler(async event => {
 
   // An explicit choice in the admin UI wins over the environment default.
   const persisted = await readStorageState(paths.storageState)
-  const requestedSource = persisted?.source ?? storage.source
+  const { effective } = resolveActiveSource({
+    storage,
+    ...(persisted ? { persisted: persisted.source } : {})
+  })
 
   try {
     return await readPublicGalleryPhotos(
       join(paths.data, GALLERY_INDEX_FILENAME),
       {
-        source: resolveEffectiveSource({
-          ...storage,
-          source: requestedSource
-        }),
+        source: effective,
         publicBaseUrl: storage.publicBaseUrl,
         prefix: storage.prefix
       }

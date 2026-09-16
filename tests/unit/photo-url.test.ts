@@ -4,6 +4,7 @@ import {
   resolvePhotoUrl,
   toPublicPhoto
 } from '../../server/utils/gallery-index'
+import { resolveActiveSource } from '../../shared/node/storage-config'
 import type { PhotoIndexItem } from '../../shared/types/photo'
 
 const ID = '0123456789abcdef'
@@ -160,5 +161,70 @@ describe('photo URL resolution', () => {
     expect(publicPhoto).not.toHaveProperty('storage')
     expect(publicPhoto).not.toHaveProperty('source')
     expect(publicPhoto).not.toHaveProperty('remote')
+  })
+})
+
+describe('active storage source resolution', () => {
+  const configured = {
+    source: 'local' as const,
+    endpoint: 'https://s3.test',
+    region: 'auto',
+    bucket: 'b',
+    accessKeyId: 'k',
+    secretAccessKey: 's',
+    publicBaseUrl: 'https://cdn.test',
+    prefix: undefined,
+    forcePathStyle: false
+  }
+
+  it('uses the environment value when nothing is persisted', () => {
+    const active = resolveActiveSource({
+      storage: { ...configured, source: 'r2' }
+    })
+
+    expect(active.requested).toBe('r2')
+    expect(active.effective).toBe('r2')
+  })
+
+  it('lets the persisted choice override the environment', () => {
+    // This is the case the admin status endpoint got wrong: it reported the
+    // environment value, so after switching to r2 the UI showed the radio on
+    // "r2" while the caption below described local mode.
+    const active = resolveActiveSource({
+      storage: { ...configured, source: 'local' },
+      persisted: 'r2'
+    })
+
+    expect(active.requested).toBe('r2')
+    expect(active.effective).toBe('r2')
+  })
+
+  it('lets a persisted local choice override an r2 environment', () => {
+    const active = resolveActiveSource({
+      storage: { ...configured, source: 'r2' },
+      persisted: 'local'
+    })
+
+    expect(active.requested).toBe('local')
+    expect(active.effective).toBe('local')
+  })
+
+  it('falls back to local when r2 is requested without credentials', () => {
+    // Requested and effective intentionally differ here: the UI must be able to
+    // show "you asked for r2, but it is not configured, so local is in use".
+    const active = resolveActiveSource({
+      storage: {
+        ...configured,
+        source: 'local',
+        endpoint: undefined,
+        bucket: undefined,
+        accessKeyId: undefined,
+        secretAccessKey: undefined
+      },
+      persisted: 'r2'
+    })
+
+    expect(active.requested).toBe('r2')
+    expect(active.effective).toBe('local')
   })
 })
