@@ -237,8 +237,8 @@ describe('AdminConfirmDialog', () => {
 
     const text = wrapper.text()
     expect(text).toContain('holiday.jpg')
-    expect(text).toContain('同步之前仍会显示在网站上')
-    expect(text).toContain('.trash')
+    expect(text).toContain('完成同步前，照片会继续显示在公开画廊中')
+    expect(text).not.toContain('.trash')
 
     wrapper.unmount()
   })
