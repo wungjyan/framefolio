@@ -1,33 +1,34 @@
 # Framefolio
 
-[English](./README.md) | [简体中文](./README.zh-CN.md)
+**English** | [简体中文](./README.zh-CN.md)
 
-Framefolio is a minimalist, self-hosted photo portfolio. It converts your original photos into web-friendly images, builds a photo index, and presents them as a clean gallery.
+Framefolio is a minimalist, self-hosted photo portfolio. It converts original photos into web-friendly images, extracts common EXIF metadata, builds an index, and presents the result as a responsive gallery.
 
-There are two ways to manage photos: the **web admin area** (recommended, works on a phone) and the **command line** (advanced, for bulk imports or recovery). Day-to-day use needs only the first.
+Day-to-day management happens in the web admin area, including uploads, deletions, and syncs. A command-line tool is also available for bulk imports, recovery, and automation. The public gallery serves only processed images and never exposes the originals directly.
 
 ## Features
 
-- Responsive photo gallery with Justified and Editorial layouts on desktop, single-column on mobile.
-- Full-screen photo viewer with previous/next navigation, keyboard controls, and a loading indicator.
-- Displays available EXIF metadata: camera, lens, 35mm-equivalent focal length, aperture, shutter speed, ISO, and capture date.
-- Generates WebP thumbnails and large previews. **Original photos are never exposed through the website.**
-- Incremental sync: adding, changing, or removing photos does not require rebuilding the app.
-- Built-in `/admin` area for uploading, deleting, and triggering a sync, with a clear "pending changes" view and a mobile-friendly layout.
-- Optional object storage (S3-compatible, e.g. Cloudflare R2) for CDN delivery, with a switch between local and CDN sources.
+- Responsive photo gallery with Justified and Editorial layouts on desktop and a single-column layout on mobile.
+- Full-screen photo viewer with previous/next navigation, keyboard controls, and loading feedback.
+- EXIF display for camera, lens, 35mm-equivalent focal length, aperture, shutter speed, ISO, and capture date when available.
+- Automatic WebP thumbnails and large previews without exposing the original files through the website.
+- Incremental sync, so adding, changing, or removing photos does not require rebuilding the application.
+- Built-in `/admin` area for uploads, recoverable deletion, pending-change status, and manual sync, with a mobile-friendly layout.
+- S3-compatible object storage with runtime switching between local and object-storage image sources.
 - Light and dark themes.
 
-Supported originals: JPEG, PNG, TIFF, WebP. HEIC, HEIF, AVIF, GIF, and camera RAW are not supported yet.
+Supported originals: JPEG, PNG, TIFF, and WebP. HEIC, HEIF, AVIF, GIF, and camera RAW are not supported yet.
 
-Default address: `http://localhost:3123`.
-
----
+Default address: `http://localhost:3123`
 
 ## Quick start
 
-Get it running the fastest way first; adjust later. **Three steps.**
+### Requirements
 
-### 1. Prepare directories and configuration
+- Docker Engine
+- Docker Compose v2, using the `docker compose` command
+
+### 1. Prepare the directory
 
 ```bash
 mkdir framefolio
@@ -36,258 +37,319 @@ curl -LO https://raw.githubusercontent.com/wungjyan/framefolio/main/compose.imag
 mkdir -p data/originals
 ```
 
-Create a `.env` file (**it must sit next to `compose.image.yml`**):
+Create a `.env` file next to `compose.image.yml`:
 
 ```env
-# Admin password: choose a strong one
-FRAMEFOLIO_ADMIN_PASSWORD=choose-a-strong-password
+FRAMEFOLIO_ADMIN_PASSWORD=replace-with-a-strong-password
 ```
 
-> **That is the only setting required.** Everything else has a sensible default, and local
-> storage mode needs no further configuration. The [Configuration](#configuration) section
-> explains when you would add more.
+This is the only setting required to enable the web admin area. Everything else can use its default in local-storage mode.
 
-### 2. Start it
+> If `FRAMEFOLIO_ADMIN_PASSWORD` is not set, the public gallery remains available but the admin API is disabled.
+
+### 2. Start the service
 
 ```bash
 docker compose -f compose.image.yml up -d gallery
 ```
 
-### 3. Get photos onto the site
+### 3. Add photos
 
-Either way works:
+The admin area is the recommended method:
 
-**Option A: upload in the admin area (recommended)**
+1. Open `http://<server-address>:3123/admin`.
+2. Sign in with the password from `.env`.
+3. Select or drag in photos.
+4. Press **Sync now**.
 
-1. Open `http://your-host:3123/admin`
-2. Sign in with the password you set
-3. Select photos to upload
-4. Press **Sync now**
+Alternatively, copy photos directly into `data/originals/`, then open `/admin` and press **Sync now**. The photos appear in the public gallery after the sync finishes.
 
-**Option B: copy files in**
+> Uploading or copying photos only changes the originals directory; it does not update the public gallery automatically. A sync generates the derivative images and updates the photo index together.
 
-Put photos in `data/originals/` (drag and drop is fine), then press **Sync now** in `/admin`.
+## Photo management and sync
 
-> **Uploading or copying photos does not update the site by itself.** You have to press
-> **Sync now**, which generates the images and updates the index in one operation.
-> See [What a sync actually does](#what-a-sync-actually-does).
+### Web admin area
 
-Done. Open the home page and your photos are there.
+The admin area is available at `/admin`. The public gallery does not link to it, so the address must be opened directly.
 
----
+| Action        | Description                                                                       |
+| ------------- | --------------------------------------------------------------------------------- |
+| Upload photos | Supports drag and drop, multiple selection, and mobile uploads                    |
+| Delete photos | Moves originals to `data/.trash/` instead of deleting them permanently right away |
+| Sync now      | Processes all pending changes and updates the public gallery                      |
+| Switch source | Switches between local and object storage immediately                             |
 
-## Daily use
+After an original is uploaded, deleted, or replaced, the admin area shows the number of pending changes. The public gallery reflects those changes only after a sync completes.
 
-### The admin area (recommended)
+### Command-line sync
 
-Open `/admin`. There is deliberately **no link to it from the public gallery**, so type the URL.
+The command line is useful for an initial bulk import, rebuilding the index while the web service is unavailable, or integrating sync into an automation script. It shares a lock with web-triggered syncs; if one sync is already running, a later attempt exits immediately instead of writing to the index concurrently.
 
-| Action        | Notes                                                   |
-| ------------- | ------------------------------------------------------- |
-| Upload photos | Drag and drop or multi-select; works on a phone         |
-| Delete photos | Moves to a recycle bin, so it is **recoverable**        |
-| Sync now      | The only thing that makes changes visible               |
-| Switch source | Between local and object storage, effective immediately |
-
-**One rule to remember: uploads and deletions do nothing until you press Sync now.**
-
-The admin area always shows how many changes are pending, so you do not have to remember.
-
-### The command line (advanced, optional)
-
-The command-line sync is useful when:
-
-- **Importing hundreds of photos for the first time** — the terminal shows live output, which is more reassuring than waiting on a web page
-- **Recovering when the web service is down** — it can rebuild the index on its own
-- **Scripting or automating** — you need a directly callable command
-
-It shares a lock with the web trigger, so the two can never run at the same time (whoever is second exits immediately with a message).
+Using the Docker Hub image:
 
 ```bash
-# Docker Hub image (in the same directory as your quick-start setup)
 docker compose -f compose.image.yml run --rm sync
 ```
 
-```bash
-# Running directly from source
-pnpm gallery:sync
-```
+Using a locally built image:
 
 ```bash
-# A locally built image
 docker compose run --rm sync
 ```
 
-> **The command line does not need the admin password.** It is an independent entry point
-> that happens to share the same sync pipeline.
+Running from source:
 
-### What a sync actually does
+```bash
+pnpm gallery:sync
+```
 
-This is the one thing worth understanding clearly: **a sync is a single operation, not two.**
+The command-line sync does not require the admin password, but it uses the same sync pipeline and data directory as the web admin area.
+
+### Sync process
 
 ```text
 scan data/originals/
-  -> generate thumbnails and previews (write data/generated/)
-  -> write the index (data/photos.json)
-  -> remove derivatives that nothing references
+  -> generate thumbnails and previews in data/generated/
+  -> update the index at data/photos.json
+  -> remove derivative images no longer referenced by the index
 ```
 
-Generating images and updating the index are two steps of the same operation. So a sync both produces the images and makes the site reflect them.
+Changes become visible at the following points:
 
-That gives three consistent behaviours:
+| Action              | Before sync                                                                                     | After sync                            |
+| ------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Upload              | The public gallery is unchanged; the admin area marks the photo as pending addition             | The photo appears in the gallery      |
+| Delete              | The public gallery still shows the photo; the admin area marks it as pending deletion           | The photo disappears from the gallery |
+| Replace an original | The public gallery continues to show the old version; the admin area marks it as pending update | The gallery shows the new version     |
 
-| What you did        | Before pressing Sync now                          | After                 |
-| ------------------- | ------------------------------------------------- | --------------------- |
-| Upload              | Site **unchanged**, marked "pending: added"       | Appears on the site   |
-| Delete              | Site **still shows it**, marked "pending: delete" | Removed from the site |
-| Replace an original | Site shows the **old image**, marked "changed"    | Updated               |
-
-> **Deletion is the easiest one to forget**: the original is already in the recycle bin, but
-> the site still shows it until you sync.
-
-### Backup
-
-```text
-Must back up:     data/originals/       <- the only irreplaceable data
-Worth backing up: data/photos.json, data/.state/
-Safe to skip:     data/generated/       <- regenerated on demand
-                  data/.trash/          <- the recycle bin
-```
-
-`photos.json` can be rebuilt from `originals/` by syncing, but it holds each photo's EXIF data
-and state, so keeping it saves a rebuild. `.state/` stores your settings, such as the selected
-storage source.
-
----
+Deleting a photo moves its original into `data/.trash/`. To recover it, move the file back into `data/originals/` and sync again. The trash directory is never cleaned automatically.
 
 ## Configuration
 
-All configuration lives in a `.env` file **next to the compose file you use**. The groups below
-are ordered by whether you actually need them.
+Docker Compose reads `.env` from the directory containing the compose file. See [`.env.example`](./.env.example) for the complete example configuration.
 
-### Required
+### Admin area
 
-Just one:
+| Variable                       | Default        | Description                                                                                                          |
+| ------------------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `FRAMEFOLIO_ADMIN_PASSWORD`    | empty          | Admin login password; when empty, admin API routes return 404 and `/admin` displays a disabled message               |
+| `FRAMEFOLIO_SESSION_TTL`       | `604800`       | Login lifetime in seconds; defaults to 7 days                                                                        |
+| `FRAMEFOLIO_SESSION_SECRET`    | admin password | Signing key for the login cookie; changing it separately invalidates existing sessions without changing the password |
+| `FRAMEFOLIO_MAX_UPLOAD_BYTES`  | `104857600`    | Maximum size of one uploaded file; defaults to 100 MB                                                                |
+| `FRAMEFOLIO_MAX_UPLOAD_PIXELS` | `120000000`    | Maximum total pixels in one image; defaults to 120 megapixels to limit memory use during decoding                    |
 
-```env
-FRAMEFOLIO_ADMIN_PASSWORD=choose-a-strong-password
-```
+The public gallery does not require a login. Enabling the admin area does not change public-gallery access.
 
-| Variable                    | Notes                                                                                                                       |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `FRAMEFOLIO_ADMIN_PASSWORD` | Admin password. **When unset, every admin API route returns 404** and `/admin` explains that the admin area is not enabled. |
+### Port and image
 
-> The public gallery needs **no** password and is browsable by anyone. That is intentional.
+| Variable           | Default                      | Description                                                                       |
+| ------------------ | ---------------------------- | --------------------------------------------------------------------------------- |
+| `FRAMEFOLIO_PORT`  | `3123`                       | Port exposed on the host                                                          |
+| `FRAMEFOLIO_IMAGE` | `wungjyan/framefolio:latest` | Container image to run; production deployments should pin an explicit version tag |
 
-### Linux / NAS: check `PUID` and `PGID`
+### Linux and NAS file permissions
 
-```env
-PUID=1000
-PGID=1000
-```
+The container runs as `1000:1000` by default. That identity must be able to write to the host's `data/` directory, or uploads, deletions, and syncs will fail with a permission error.
 
-The container runs as `1000:1000` by default. **If your host user is not 1000, writes will fail**
-— typically as a permission error during sync. Check and set them:
+On Linux or a NAS, first inspect the owner of `data/`:
 
 ```bash
-id -u    # e.g. 1026  -> PUID=1026
-id -g    # e.g. 100   -> PGID=100
+ls -ldn data
 ```
 
-When this matters:
-
-| Platform                                      | Need to change?                                     |
-| --------------------------------------------- | --------------------------------------------------- |
-| **Linux / NAS (Synology, QNAP, Unraid, ...)** | **Yes, check it.** Use `id -u` and `id -g`          |
-| macOS / Windows with Docker Desktop           | Normally not; desktop mounts do not enforce the UID |
-
-> **Note**: `PUID` / `PGID` affect **both** the gallery container (upload, delete, and sync from
-> `/admin`) and the sync container (command line), because both write to `data/`. They are not a
-> command-line-only setting.
-
-### Common options
+If the reported UID and GID are not `1000 1000`, put the actual values in `.env`. For example:
 
 ```env
-FRAMEFOLIO_PORT=3123
-FRAMEFOLIO_IMAGE=wungjyan/framefolio:1.0.0
+PUID=1026
+PGID=100
 ```
 
-| Variable                       | Default                      | Notes                                                                                                    |
-| ------------------------------ | ---------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `FRAMEFOLIO_PORT`              | `3123`                       | Port exposed on the host                                                                                 |
-| `FRAMEFOLIO_IMAGE`             | `wungjyan/framefolio:latest` | Image to run. Pinning a version is recommended over `latest`                                             |
-| `FRAMEFOLIO_SESSION_TTL`       | `604800` (7 days)            | Login lifetime, in seconds                                                                               |
-| `FRAMEFOLIO_SESSION_SECRET`    | the admin password           | Signs the login cookie. Rarely needed; setting it invalidates all sessions without changing the password |
-| `FRAMEFOLIO_MAX_UPLOAD_BYTES`  | `104857600` (100 MB)         | Maximum size per uploaded file                                                                           |
-| `FRAMEFOLIO_MAX_UPLOAD_PIXELS` | `120000000`                  | Maximum pixels per photo, to bound memory while decoding                                                 |
+If the current account created `data/`, its IDs can also be found with:
 
-### Advanced: object storage / CDN
-
-**If you use local storage only, none of these are needed.** That is the default, and the
-recommended setup for most personal use.
-
-Typical reasons to add it: images are slow to load from outside your network and you want CDN
-caching, or you have a large library and want to reduce outbound traffic from the NAS.
-
-See [Object storage (CDN)](#object-storage-cdn).
-
----
-
-## Object storage (CDN)
-
-Images can be served from any S3-compatible object storage — Cloudflare R2 is the intended
-target, but Alibaba OSS, AWS S3, and self-hosted MinIO work too. **Local disk is always kept as
-a per-photo fallback.**
-
-### Setup
-
-1. Create a bucket and an API token with **object read and write** permission.
-2. Bind a custom domain to the bucket.
-   > Prefer a custom domain over `r2.dev`, which is rate-limited and not served through the CDN cache.
-3. Add these to `.env`:
-
-```env
-FRAMEFOLIO_STORAGE_SOURCE=local
-
-FRAMEFOLIO_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
-FRAMEFOLIO_S3_REGION=auto
-FRAMEFOLIO_S3_BUCKET=your-bucket
-FRAMEFOLIO_S3_ACCESS_KEY_ID=your-access-key
-FRAMEFOLIO_S3_SECRET_ACCESS_KEY=your-secret-key
-
-# Public URL: your custom domain
-FRAMEFOLIO_S3_PUBLIC_BASE_URL=https://img.example.com
+```bash
+id -u
+id -g
 ```
 
-4. Restart, then switch the source to **Object storage** in `/admin`.
+Verify write access with:
+
+```bash
+docker compose -f compose.image.yml run --rm --entrypoint sh gallery \
+  -c 'id && touch /app/data/.write-test && echo "writable" && rm /app/data/.write-test'
+```
+
+- `writable`: the permission configuration works.
+- `Permission denied`: check that `PUID` and `PGID` match the owner of `data/`.
+
+Docker Desktop on macOS and Windows does not normally enforce matching UID/GID values for mounted directories, so these variables usually do not need to be changed there. The write test is most meaningful on Linux and NAS systems.
+
+> `PUID` and `PGID` apply to both the `gallery` and `sync` services because both write to `data/`.
+
+## Object storage and CDN
+
+Framefolio supports S3-compatible object storage, including Cloudflare R2, AWS S3, Alibaba Cloud OSS, and MinIO. Without object-storage configuration, all images are served locally.
 
 ### How it works
 
-Whenever object storage is configured, **every sync uploads the generated images**, regardless
-of which source is currently active. That gives three useful properties:
+Once object storage is fully configured, each sync keeps the local derivatives and also uploads the thumbnails and previews to object storage. `FRAMEFOLIO_STORAGE_SOURCE` controls which kind of image URL the public gallery uses; it does not control whether uploads happen:
 
-- **Switching sources needs no re-sync** — only the URL prefix changes; filenames are identical
-- **A failed upload self-heals** — the next sync retries it, rather than skipping it forever
-- **Photos not yet uploaded fall back to local, one by one** — a partial upload never produces broken images
+| `FRAMEFOLIO_STORAGE_SOURCE` | Image source used by the public gallery                                                        | Upload to object storage during sync           |
+| --------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `local`                     | Local `/media/...` URLs                                                                        | Yes, whenever the S3 configuration is complete |
+| `r2`                        | `FRAMEFOLIO_S3_PUBLIC_BASE_URL`; photos that were not uploaded successfully fall back to local | Yes                                            |
 
-`FRAMEFOLIO_S3_PUBLIC_BASE_URL` is only a string prefix. A custom domain, `r2.dev`, or a MinIO
-address all behave identically; there is no branching in the code.
+This design keeps object storage current even while the gallery is serving local URLs, so it can be enabled later without reprocessing photos. An upload failure does not interrupt local publishing; the affected photo continues to use a local URL and a later sync retries the upload.
 
-<details>
-<summary>Other optional variables</summary>
+> The source selected in the admin area is saved to `data/.state/storage.json` and takes precedence over `FRAMEFOLIO_STORAGE_SOURCE`. The environment variable is therefore the initial value for a fresh deployment, not a setting that overwrites the admin choice on every restart.
 
-| Variable                         | Notes                                                           |
-| -------------------------------- | --------------------------------------------------------------- |
-| `FRAMEFOLIO_S3_PREFIX`           | Object key prefix, for sharing one bucket between several sites |
-| `FRAMEFOLIO_S3_FORCE_PATH_STYLE` | Self-hosted servers such as MinIO usually need `true`           |
+### Cloudflare R2 configuration example
 
-</details>
+The following walkthrough uses Cloudflare R2 only as a complete example. Framefolio is not limited to R2: other S3-compatible services work as well, with the provider-specific endpoint, region, credentials, and addressing mode.
 
----
+1. Create an R2 bucket.
+2. Create an R2 API token with **Object Read & Write** permission, scoped to the specific Framefolio bucket where possible. Framefolio needs to upload, list, and delete objects; it does not need **Admin Read & Write**. See the [Cloudflare R2 API token documentation](https://developers.cloudflare.com/r2/api/tokens/) for the current steps.
+3. Configure a public address for the bucket. A custom domain is recommended for production; `r2.dev` is better suited to testing.
+4. Add the configuration to `.env`:
 
-## Running from source (development)
+```env
+# Initial source: local or r2
+FRAMEFOLIO_STORAGE_SOURCE=local
 
-Requires Node.js `^22.19.0`, `^24.11.0`, or `>=26.0.0`, plus pnpm 11.
+# R2 S3 API endpoint; do not append the bucket name
+FRAMEFOLIO_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+FRAMEFOLIO_S3_REGION=auto
+FRAMEFOLIO_S3_BUCKET=example-bucket
+FRAMEFOLIO_S3_ACCESS_KEY_ID=example-access-key
+FRAMEFOLIO_S3_SECRET_ACCESS_KEY=example-secret-key
+
+# Public address of the bucket, such as its custom domain
+FRAMEFOLIO_S3_PUBLIC_BASE_URL=https://img.example.com
+
+# Optional; normally empty for a dedicated bucket
+FRAMEFOLIO_S3_PREFIX=
+FRAMEFOLIO_S3_FORCE_PATH_STYLE=false
+```
+
+`FRAMEFOLIO_S3_ENDPOINT` is the S3 API service address. Put the bucket name in `FRAMEFOLIO_S3_BUCKET` instead. For example, do not use `https://<account-id>.r2.cloudflarestorage.com/example-bucket` as the endpoint.
+
+After a token is created, Cloudflare provides an Access Key ID and Secret Access Key. They map to `FRAMEFOLIO_S3_ACCESS_KEY_ID` and `FRAMEFOLIO_S3_SECRET_ACCESS_KEY`, respectively. The Secret Access Key is normally shown only once; store it securely and never commit it to the repository.
+
+### Variables
+
+| Variable                          | Default | Description                                         |
+| --------------------------------- | ------- | --------------------------------------------------- |
+| `FRAMEFOLIO_STORAGE_SOURCE`       | `local` | Initial image source: `local` or `r2`               |
+| `FRAMEFOLIO_S3_ENDPOINT`          | empty   | S3 API service address, without the bucket name     |
+| `FRAMEFOLIO_S3_REGION`            | `auto`  | S3 region; Cloudflare R2 uses `auto`                |
+| `FRAMEFOLIO_S3_BUCKET`            | empty   | Bucket name                                         |
+| `FRAMEFOLIO_S3_ACCESS_KEY_ID`     | empty   | S3 Access Key ID                                    |
+| `FRAMEFOLIO_S3_SECRET_ACCESS_KEY` | empty   | S3 Secret Access Key                                |
+| `FRAMEFOLIO_S3_PUBLIC_BASE_URL`   | empty   | Public base address used by browsers to load images |
+| `FRAMEFOLIO_S3_PREFIX`            | empty   | Optional directory prefix added to every object key |
+| `FRAMEFOLIO_S3_FORCE_PATH_STYLE`  | `false` | Whether S3 API requests use path-style addressing   |
+
+#### `FRAMEFOLIO_S3_PREFIX`
+
+This variable adds a shared prefix to every Framefolio object in the bucket. It is useful when several sites or applications share one bucket. For example:
+
+```env
+FRAMEFOLIO_S3_PREFIX=framefolio
+```
+
+Objects are stored as:
+
+```text
+framefolio/<derivative-id>-thumbnail.webp
+framefolio/<derivative-id>-preview.webp
+```
+
+Leave it empty when the bucket is dedicated to one Framefolio instance.
+
+> Do not change the prefix directly after object-storage syncs have already completed. The current index records whether each photo revision was uploaded, but changing only the prefix does not trigger unchanged photos to upload again. If the prefix must change, keep the gallery on the local source, move the existing objects from the old prefix to the new one, verify remote completeness in the admin area, and only then switch the image source.
+
+#### `FRAMEFOLIO_S3_FORCE_PATH_STYLE`
+
+This variable controls how the bucket is addressed in S3 API requests:
+
+- `false`: virtual-hosted style, such as `https://<bucket>.<endpoint>/<object>`.
+- `true`: path style, such as `https://<endpoint>/<bucket>/<object>`.
+
+Cloudflare R2, AWS S3, and most cloud object-storage services normally use `false`. MinIO and other self-hosted S3 services commonly require `true`. This setting affects only the S3 API requests made by Framefolio; it does not change `FRAMEFOLIO_S3_PUBLIC_BASE_URL`.
+
+### Enable and verify
+
+Recreate the `gallery` service after editing `.env`:
+
+```bash
+docker compose -f compose.image.yml up -d gallery
+```
+
+Open `/admin`, check the object-storage connection, and run a sync. Existing photos are not uploaded to newly configured object storage until that sync runs. Once the admin area reports that the remote objects are complete, switch the image source to **Object storage**.
+
+`FRAMEFOLIO_S3_PUBLIC_BASE_URL` is used only to build public image URLs. It can be an R2 custom domain, `r2.dev`, or the public address of another S3-compatible service. Without a public base URL, objects can still be uploaded, but the public gallery continues to use local image URLs.
+
+## Data and backups
+
+| Path               | Contents                                          | Backup guidance                                           |
+| ------------------ | ------------------------------------------------- | --------------------------------------------------------- |
+| `data/originals/`  | Original photos                                   | Must be backed up; this is the primary irreplaceable data |
+| `data/photos.json` | Photo index and EXIF metadata                     | Recommended; keeping it avoids unnecessary rebuild time   |
+| `data/.state/`     | Runtime state such as the selected storage source | Recommended                                               |
+| `data/generated/`  | WebP thumbnails and previews                      | Optional; a sync can regenerate it                        |
+| `data/.trash/`     | Deleted originals                                 | Depends on recovery needs; never cleaned automatically    |
+
+Both `data/photos.json` and `data/generated/` can be rebuilt from `data/originals/`. After restoring a backup, run one sync to rebuild the public gallery.
+
+## Updates and operations
+
+Check service status:
+
+```bash
+docker compose -f compose.image.yml ps
+```
+
+Follow logs:
+
+```bash
+docker compose -f compose.image.yml logs -f gallery
+```
+
+Stop the service:
+
+```bash
+docker compose -f compose.image.yml down
+```
+
+Pull a newer image and recreate the service:
+
+```bash
+docker compose -f compose.image.yml pull
+docker compose -f compose.image.yml up -d gallery
+```
+
+Production deployments should pin an explicit version with `FRAMEFOLIO_IMAGE` and back up `data/originals/` before updating.
+
+### Upgrading from an older version
+
+If an older `data/photos.json` is incompatible with the current index format, the public gallery reports that the index must be rebuilt. Open `/admin` and run **Sync now**, or use the command-line sync.
+
+The first rebuild may need to regenerate every derivative. Later syncs return to incremental processing. For a large library, use the command-line sync to see live progress.
+
+## Security recommendations
+
+- Use a long, randomly generated value for `FRAMEFOLIO_ADMIN_PASSWORD`.
+- When `/admin` is exposed to the internet, add another authentication layer at the reverse proxy, such as Cloudflare Access or HTTP Basic Auth.
+- Use HTTPS for public deployments so login credentials and session cookies are not sent in clear text.
+- Back up `data/originals/` regularly, and include `data/.trash/` when recovery of deleted originals matters.
+
+`robots.txt` and `noindex` response headers only reduce the chance that the admin area is indexed by search engines; they are not access controls. An unauthenticated visitor can still open the `/admin` login page. The actual protection comes from the admin password and any reverse-proxy authentication.
+
+## Running from source
+
+### Requirements
+
+- Node.js `^22.19.0`, `^24.11.0`, or `>=26.0.0`
+- pnpm 11
 
 ```bash
 git clone https://github.com/wungjyan/framefolio.git
@@ -296,176 +358,130 @@ corepack enable
 pnpm install
 ```
 
-**Development mode** (hot reload):
+Development mode:
 
 ```bash
 pnpm dev
 ```
 
-Development reads `.env` and `.env.local`, so you can keep the password in a file instead of
-passing it every time:
+Development mode reads `.env` and then `.env.local`. Settings intended only for the local machine can go in `.env.local`, which is ignored by Git:
 
 ```env
-# .env.local — personal settings, ignored by git
-FRAMEFOLIO_ADMIN_PASSWORD=your-password
+FRAMEFOLIO_ADMIN_PASSWORD=replace-with-a-local-password
 ```
 
-**Production mode**:
+Production mode:
 
 ```bash
 pnpm build
-FRAMEFOLIO_ADMIN_PASSWORD=your-password NITRO_HOST=0.0.0.0 NITRO_PORT=3123 \
+FRAMEFOLIO_ADMIN_PASSWORD=replace-with-a-strong-password \
+  NITRO_HOST=0.0.0.0 \
+  NITRO_PORT=3123 \
   node .output/server/index.mjs
 ```
 
-> Building does not need the password; **running does**.
+The admin password is not needed at build time. It is read when the server starts.
 
-### How configuration files are loaded
+### Configuration loading rules
 
-The three ways to run the app read configuration from different places, which is an easy trap:
+| Run mode                        | `.env` | `.env.local`                  | Process environment variables |
+| ------------------------------- | ------ | ----------------------------- | ----------------------------- |
+| `pnpm dev`                      | read   | read with higher priority     | highest priority              |
+| `pnpm gallery:sync`             | read   | read with higher priority     | highest priority              |
+| `node .output/server/index.mjs` | read   | not read                      | highest priority              |
+| Docker Compose                  | read   | not passed into the container | highest priority              |
 
-| How you run it                  | `.env` | `.env.local`        | Real environment variables |
-| ------------------------------- | ------ | ------------------- | -------------------------- |
-| `pnpm dev` (development)        | ✅     | ✅ (**wins**)       | ✅ (highest)               |
-| `node .output/...` (production) | ✅     | ❌ **not read**     | ✅ (highest)               |
-| Docker Compose                  | ✅     | ❌ not in the image | ✅                         |
+At startup, the server logs the names of configuration keys loaded from files, but never their values.
 
-The rules:
+### Build a container image from source
 
-1. **A real environment variable always wins** over any file, so container settings cannot be changed by a stray file.
-2. **Development** reads `.env` and `.env.local`, with the latter overriding — the usual "personal local overrides" convention.
-3. **Production reads only `.env`**, never `.env.local`, so a developer's personal file cannot affect a live deployment.
-4. `.env.local` is excluded by both `.gitignore` and `.dockerignore`: it is neither committed nor copied into the image.
+The repository contains two Compose files:
 
-> On startup the server logs which settings it loaded and from which file — **key names only,
-> never values** — so you can confirm configuration took effect:
->
-> ```text
-> [framefolio] Loaded 1 setting(s) from .env, .env.local: FRAMEFOLIO_ADMIN_PASSWORD
-> ```
+| File                 | Image source                         | Intended use                                  |
+| -------------------- | ------------------------------------ | --------------------------------------------- |
+| `compose.image.yml`  | Pulls the published Docker Hub image | Normal deployment; recommended                |
+| `docker-compose.yml` | Builds an image from local source    | Development, debugging, or code customization |
 
-> The command-line sync (`pnpm gallery:sync`) is a separate process and reads the same files.
-
-### Building a Docker image from source
-
-Only needed if you are changing the code. Requires Docker Engine and Docker Compose v2.
+Build and start from source:
 
 ```bash
 git clone https://github.com/wungjyan/framefolio.git
 cd framefolio
-cp .env.example .env      # then edit .env and set the admin password
+cp .env.example .env
+# Edit .env and set at least the admin password
 docker compose build
 docker compose up -d gallery
 ```
 
-### The two compose files
-
-The repository ships **two** compose files with different purposes, and **you only need one**:
-
-| File                 | Image source                         | When to use it                                                      |
-| -------------------- | ------------------------------------ | ------------------------------------------------------------------- |
-| `compose.image.yml`  | Pulls the published Docker Hub image | **Recommended.** Use this to deploy: no source code, no local build |
-| `docker-compose.yml` | Builds the image from local source   | Only when you are **changing the code**                             |
-
-They are otherwise identical — same container, mounts, environment variables, and healthcheck.
-The only difference is where the image comes from.
-
-> So for deployment, **use `compose.image.yml`** and ignore `docker-compose.yml` entirely.
+The two Compose files provide the same services, mounts, environment variables, and healthcheck. The only difference is where the image comes from.
 
 ### Development commands
 
 ```bash
-pnpm dev          # dev server (hot reload)
-pnpm build        # production build
-pnpm test         # unit tests
-pnpm typecheck    # type check
-pnpm lint         # lint
-pnpm format       # format
+pnpm dev          # start the development server
+pnpm build        # create a production build
+pnpm test         # run unit tests
+pnpm typecheck    # run type checking
+pnpm lint         # run lint checks
+pnpm format       # format code and documentation
 ```
-
----
 
 ## Troubleshooting
 
 ### `/admin` says the admin area is not enabled
 
-`FRAMEFOLIO_ADMIN_PASSWORD` is not set. Set it and restart the container.
-
-The **public gallery is unaffected** and stays reachable.
-
-### Sync fails with a permission error
-
-`PUID` / `PGID` do not match the owner of your files. Common on Linux and NAS. Look up the
-correct values with `id -u` and `id -g`, put them in `.env`, and restart.
-
-### Upgrading from an older version
-
-The index format changed, so **the public gallery shows an error until you sync once**.
-
-Open `/admin` and press **Sync now**. The admin area still works before that sync and will tell
-you the index needs rebuilding.
-
-> **The first sync regenerates every thumbnail** (the old index cannot be reused); later syncs
-> are incremental. Give it a few minutes for a large library.
-
-### I want to switch to a CDN
-
-See [Object storage (CDN)](#object-storage-cdn). You can enable it and switch back at any time,
-with no redeploy and no reprocessing of existing photos.
-
-### I deleted a photo but it is still on the site
-
-That is by design: deleting moves the original to `data/.trash/`, and it disappears from the site
-only after you press **Sync now**. When you are sure you no longer want it, delete the files in
-`.trash/` (nothing there is cleaned up automatically).
-
----
-
-## Operations
+`FRAMEFOLIO_ADMIN_PASSWORD` is missing or empty. Add it and recreate the `gallery` service:
 
 ```bash
-# Status
-docker compose -f compose.image.yml ps
-
-# Logs
-docker compose -f compose.image.yml logs -f gallery
-
-# Stop
-docker compose -f compose.image.yml down
-
-# Update to a new version
-docker compose -f compose.image.yml pull
 docker compose -f compose.image.yml up -d gallery
 ```
 
-### Security
+The public gallery is unaffected and remains available.
 
-`/admin` can be exposed to the internet, so adding a second layer of authentication at your
-reverse proxy (Cloudflare Access, HTTP Basic Auth, ...) is recommended.
+### Sync fails with `EACCES` or `Permission denied`
 
-`robots.txt` and a `noindex` header only **keep the page out of search engines**; they are
-**not access control**. Anyone can open `/admin` and see the login page. The real defence is the
-admin password.
+The container identity does not match the permissions on `data/`. Linux and NAS users should follow [Linux and NAS file permissions](#linux-and-nas-file-permissions) to check `PUID` and `PGID`.
 
----
+### Photos were uploaded, but the public gallery did not change
 
-## Publishing to Docker Hub
+Uploading and copying files does not publish them automatically. Open `/admin` and press **Sync now**, or run:
 
-Maintainers can build and publish multi-platform images with the included script:
+```bash
+docker compose -f compose.image.yml run --rm sync
+```
+
+### A deleted photo still appears in the public gallery
+
+Deleting only moves the original into `data/.trash/`. The photo disappears from the public gallery after the next sync completes.
+
+### Object storage is configured, but the admin area cannot switch to it
+
+Check that every required `FRAMEFOLIO_S3_*` variable reaches the container, then recreate the `gallery` service after editing `.env`. Inspect the logs with:
+
+```bash
+docker compose -f compose.image.yml logs gallery
+```
+
+## Maintainers: publishing Docker images
+
+<details>
+<summary>Show publishing instructions</summary>
+
+After signing in to Docker Hub, use the publishing script to build and push a multi-platform image:
 
 ```bash
 docker login
 ./scripts/docker-publish.sh 1.0.0
 ```
 
-By default, the script pushes:
+By default, it pushes:
 
 ```text
 wungjyan/framefolio:1.0.0
 wungjyan/framefolio:latest
 ```
 
-Override the repository, platforms, or npm registry with environment variables:
+Override the repository, build platforms, or npm registry with environment variables:
 
 ```bash
 IMAGE_REPOSITORY=example/framefolio \
@@ -474,4 +490,10 @@ NPM_REGISTRY=https://registry.npmjs.org \
 ./scripts/docker-publish.sh 1.0.0
 ```
 
-Set `PUBLISH_LATEST=false` to publish only the specified version tag.
+Set `PUBLISH_LATEST=false` to publish only the explicit version tag.
+
+</details>
+
+## License
+
+Framefolio is available under the [MIT License](./LICENSE).

@@ -1,33 +1,34 @@
 # Framefolio
 
-[English](./README.md) | [简体中文](./README.zh-CN.md)
+[English](./README.md) | **简体中文**
 
-Framefolio 是一个自托管的极简摄影作品集。它把原始照片转换成适合网页浏览的图片，并生成照片索引，然后以一个干净的画廊呈现出来。
+Framefolio 是一个自托管的极简摄影作品集。它将原始照片转换为适合网页浏览的图片，提取常用 EXIF 信息并生成索引，最终以响应式画廊对外展示。
 
-照片的管理方式有两种：**网页管理端**（推荐，手机也能用）和**命令行**（进阶，用于批量导入或应急）。日常使用只需要前一种。
+日常管理可通过网页端完成，包括上传、删除和同步；命令行工具则适合批量导入、故障恢复与自动化场景。公开画廊只提供处理后的图片，不直接暴露原图。
 
-## 功能
+## 主要功能
 
-- 响应式照片画廊，桌面端支持 Justified 与 Editorial 两种布局，移动端单列显示。
-- 全屏照片查看器，支持前后切换、键盘操作和加载提示。
-- 展示相机、镜头、35mm 等效焦距、光圈、快门、ISO 和拍摄日期等 EXIF 信息。
-- 自动生成 WebP 缩略图与大图预览，**原图永远不会通过网页公开**。
-- 增量同步：新增、修改或删除照片后不需要重新构建应用。
-- 内置 `/admin` 管理端：上传、删除、手动同步，清楚显示「待同步」状态，移动端可用。
-- 可选对象存储（兼容 S3，例如 Cloudflare R2）加速，支持本地 / CDN 源切换。
+- 响应式照片画廊：桌面端提供 Justified 和 Editorial 两种布局，移动端使用单列布局。
+- 全屏照片查看器：支持前后切换、键盘操作和加载状态提示。
+- EXIF 展示：支持相机、镜头、35mm 等效焦距、光圈、快门、ISO 和拍摄日期等信息。
+- 图片处理：自动生成 WebP 缩略图与大图预览，不通过网页公开原图。
+- 增量同步：新增、修改或删除照片后，无需重新构建应用。
+- 网页管理端：内置 `/admin`，支持上传、软删除、待同步状态和手动同步，并适配移动端。
+- 对象存储：支持兼容 S3 的对象存储，可在本地与对象存储图片源之间切换。
 - 浅色与深色主题。
 
-支持的原图格式：JPEG、PNG、TIFF、WebP。暂不支持 HEIC、HEIF、AVIF、GIF 和相机 RAW。
+支持的原图格式：JPEG、PNG、TIFF 和 WebP。暂不支持 HEIC、HEIF、AVIF、GIF 与相机 RAW。
 
-默认访问地址：`http://localhost:3123`。
-
----
+默认访问地址：`http://localhost:3123`
 
 ## 快速开始
 
-先用最快的方式把它跑起来，之后再按需调整。**只有三步。**
+### 环境要求
 
-### 第一步：准备目录与配置
+- Docker Engine
+- Docker Compose v2（使用 `docker compose` 命令）
+
+### 1. 准备目录
 
 ```bash
 mkdir framefolio
@@ -36,283 +37,319 @@ curl -LO https://raw.githubusercontent.com/wungjyan/framefolio/main/compose.imag
 mkdir -p data/originals
 ```
 
-创建 `.env` 文件（**必须与 `compose.image.yml` 放在同一目录**）：
+在 `compose.image.yml` 同目录创建 `.env`：
 
 ```env
-# 管理端口令：自己设一个强口令
-FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令
+FRAMEFOLIO_ADMIN_PASSWORD=replace-with-a-strong-password
 ```
 
-> **就这一项。** 其余全部有合理默认值，本地存储模式下不需要任何其他配置。
-> [配置说明](#配置说明)会解释什么时候才需要加别的。
+这是启用网页管理端所需的唯一配置。本地存储模式下，其余选项均可使用默认值。
 
-### 第二步：启动
+> 未设置 `FRAMEFOLIO_ADMIN_PASSWORD` 时，公开画廊仍可访问，但管理端接口会停用。
+
+### 2. 启动服务
 
 ```bash
 docker compose -f compose.image.yml up -d gallery
 ```
 
-### 第三步：把照片放进站点
+### 3. 添加照片
 
-有两种方式，任选其一：
+推荐使用管理端：
 
-**方式 A：用管理端上传（推荐）**
+1. 打开 `http://<服务器地址>:3123/admin`。
+2. 使用 `.env` 中配置的口令登录。
+3. 选择或拖入照片。
+4. 点击「立即同步」。
 
-1. 浏览器打开 `http://你的地址:3123/admin`
-2. 输入刚才设的口令登录
-3. 选择照片上传
-4. 点「**立即同步**」
+也可以将照片直接复制到 `data/originals/`，再进入 `/admin` 点击「立即同步」。同步完成后，照片会出现在公开画廊中。
 
-**方式 B：直接拷文件**
+> 上传或复制照片只会修改原图目录，不会自动更新公开画廊。同步会统一生成派生图片并更新照片索引。
 
-把照片放进 `data/originals/`（拖拽即可），然后在 `/admin` 里点「**立即同步**」。
+## 照片管理与同步
 
-> **注意**：上传或拷入照片后，网站**不会自动更新**。你需要点一次「立即同步」——
-> 这一步同时完成「生成缩略图」和「更新索引」。详见[同步到底做了什么](#同步到底做了什么)。
+### 网页管理端
 
-完成。打开首页就能看到照片了。
+管理端地址为 `/admin`。公开画廊不会显示管理端入口，需要直接访问该地址。
 
----
+| 操作       | 说明                                        |
+| ---------- | ------------------------------------------- |
+| 上传照片   | 支持拖放、多选和移动端上传                  |
+| 删除照片   | 将原图移入 `data/.trash/`，不会立即永久删除 |
+| 立即同步   | 处理所有待发布变更并更新公开画廊            |
+| 切换访问源 | 在本地与对象存储之间切换，立即生效          |
 
-## 日常使用
+上传、删除和替换原图后，管理端会显示待同步数量。只有完成同步，相关变更才会反映到公开画廊。
 
-### 方式一：管理端（推荐）
+### 命令行同步
 
-打开 `/admin`（公开画廊**没有**指向它的入口，需要手动输入地址）。
+命令行适合首次批量导入、网页服务不可用时重建索引，或接入自动化脚本。它与网页端同步共用同一把锁；已有同步任务运行时，后触发的任务会直接退出，避免同时写入索引。
 
-你能在这里做的事：
-
-| 操作       | 说明                              |
-| ---------- | --------------------------------- |
-| 上传照片   | 支持拖拽、多选，手机也能用        |
-| 删除照片   | 移入回收站，**可以恢复**          |
-| 立即同步   | 让改动生效的唯一入口              |
-| 切换访问源 | 本地 / 对象存储之间切换，即时生效 |
-
-**记住一条规则就够：上传和删除都不会立刻生效，点「立即同步」之后才会。**
-
-管理端会一直显示还有多少改动待同步，所以你不用自己记。
-
-### 方式二：命令行（进阶，可选）
-
-命令行同步适合这些场景：
-
-- **首次导入几百张照片**：在终端能看到实时输出，比在网页上等更可靠
-- **网页服务起不来时修复**：能用命令行重建索引
-- **脚本化 / 自动化**：需要一个可直接调用的命令
-
-它与网页触发**共用同一把锁**，所以两者不会同时运行（同时触发时后来者会直接退出并提示）。
+使用 Docker Hub 镜像：
 
 ```bash
-# 使用 Docker Hub 镜像（与快速开始同一目录）
 docker compose -f compose.image.yml run --rm sync
 ```
 
-```bash
-# 从源码直接运行
-pnpm gallery:sync
-```
+使用本地构建的镜像：
 
 ```bash
-# 使用本地构建的镜像
 docker compose run --rm sync
 ```
 
-> **命令行不需要管理端口令。** 它与管理端是独立的两条路径，只是共用同一个同步管线。
+从源码运行：
 
-### 同步到底做了什么
+```bash
+pnpm gallery:sync
+```
 
-这是整套设计里最需要理解的一点：**同步是一个操作，不是两个。**
+命令行同步不需要管理端口令，但使用与网页端相同的同步管线和数据目录。
+
+### 同步流程
 
 ```text
 扫描 data/originals/
-  → 生成缩略图和预览图（写入 data/generated/）
-  → 写入索引 data/photos.json
-  → 清理不再被引用的旧图
+  → 生成缩略图和预览图，写入 data/generated/
+  → 更新索引 data/photos.json
+  → 清理不再被索引引用的派生图片
 ```
 
-生成图片和更新索引是同一个操作的先后两步。所以「同步」既产出图片、也让网站更新。
+各类变更的发布时机如下：
 
-由此得到三条一致的行为：
+| 操作     | 同步前                                     | 同步后           |
+| -------- | ------------------------------------------ | ---------------- |
+| 上传     | 公开画廊不变，管理端标记为待新增           | 照片出现在画廊中 |
+| 删除     | 公开画廊仍显示照片，管理端标记为待删除     | 照片从画廊中移除 |
+| 替换原图 | 公开画廊继续显示旧版本，管理端标记为待更新 | 画廊显示新版本   |
 
-| 你的操作 | 点「立即同步」之前                 | 之后         |
-| -------- | ---------------------------------- | ------------ |
-| 上传     | 网站**不变**，管理端标记「待新增」 | 出现在网站上 |
-| 删除     | 网站上**仍然显示**，标记「待删除」 | 从网站消失   |
-| 替换原图 | 网站**仍是旧图**，标记「待更新」   | 更新为新图   |
+删除操作会将原图移入 `data/.trash/`。如需恢复，将文件移回 `data/originals/` 后重新同步即可；回收站不会自动清理。
 
-> **最容易忘的是删除**：原图已经进回收站了，但网站上还看得见——直到你同步。
+## 配置
 
-### 备份
+Docker Compose 会读取与 compose 文件同目录的 `.env`。完整配置示例见 [`.env.example`](./.env.example)。
 
-```text
-必备份：   data/originals/        ← 唯一的不可再生数据
-建议备份： data/photos.json、data/.state/
-可以不备： data/generated/        ← 可重新生成
-          data/.trash/            ← 回收站
-```
+### 管理端
 
-`photos.json` 可以从 `originals/` 重建（同步一次即可），但它记录了每张照片的
-EXIF 与状态，一起备份能省去重建时间。`.state/` 保存你的设置（比如选择的访问源）。
+| 变量                           | 默认值      | 说明                                                               |
+| ------------------------------ | ----------- | ------------------------------------------------------------------ |
+| `FRAMEFOLIO_ADMIN_PASSWORD`    | 空          | 管理端登录口令；为空时管理端 API 返回 404，`/admin` 显示未启用提示 |
+| `FRAMEFOLIO_SESSION_TTL`       | `604800`    | 登录状态有效期，单位为秒，默认 7 天                                |
+| `FRAMEFOLIO_SESSION_SECRET`    | 管理端口令  | 登录 Cookie 签名密钥；单独修改可在不更换口令的情况下使已有会话失效 |
+| `FRAMEFOLIO_MAX_UPLOAD_BYTES`  | `104857600` | 单个上传文件的大小上限，默认 100 MB                                |
+| `FRAMEFOLIO_MAX_UPLOAD_PIXELS` | `120000000` | 单张图片的总像素上限，默认 1.2 亿像素，用于控制解码时的内存占用    |
 
----
+公开画廊不需要登录。启用管理端并不改变公开画廊的访问权限。
 
-## 配置说明
+### 端口与镜像
 
-所有配置都写在**与 compose 文件同目录**的 `.env` 里。下面按「是否必需」分组。
+| 变量               | 默认值                       | 说明                                             |
+| ------------------ | ---------------------------- | ------------------------------------------------ |
+| `FRAMEFOLIO_PORT`  | `3123`                       | 映射到宿主机的访问端口                           |
+| `FRAMEFOLIO_IMAGE` | `wungjyan/framefolio:latest` | 使用的容器镜像；生产部署建议固定到明确的版本标签 |
 
-### 必需项
+### Linux 与 NAS 文件权限
 
-只有一项：
+容器默认以 `1000:1000` 运行。该身份必须能够写入宿主机的 `data/` 目录，否则上传、删除和同步会因权限不足而失败。
 
-```env
-FRAMEFOLIO_ADMIN_PASSWORD=你的强口令
-```
-
-| 变量                        | 说明                                                                                  |
-| --------------------------- | ------------------------------------------------------------------------------------- |
-| `FRAMEFOLIO_ADMIN_PASSWORD` | 管理端口令。**不设置时管理端接口全部返回 404**，`/admin` 页面会提示「管理端未启用」。 |
-
-> 公开画廊**不需要**任何口令，任何人访问首页都能浏览照片。这是设计如此。
-
-### Linux / NAS 用户必看：`PUID` 与 `PGID`
-
-**在 Linux 和 NAS 上部署，这一项必须设置。** macOS / Windows 不用管。
-
-容器以 `user: PUID:PGID` 运行，默认是 `1000:1000`。这个身份要能**写入 `data/` 目录**，
-否则同步会失败。`data/` 的属主是创建它的那个用户，所以：
-
-**第一步：查出正确的值**
+在 Linux 或 NAS 上，先查看 `data/` 的属主：
 
 ```bash
-id -u    # 输出你的 UID，例如 1026
-id -g    # 输出你的 GID，例如 100
+ls -ldn data
 ```
 
-> 如果 `data/` 不是你本人创建的（例如由其他账号或安装脚本建立），请查目录属主而不是当前用户：
->
-> ```bash
-> ls -ldn data
-> # drwxr-xr-x 2 1026 100 ...   ← 这两个数字就是 PUID 和 PGID
-> ```
-
-**第二步：写进 `.env`**
+如果输出中的 UID 和 GID 不是 `1000 1000`，将实际值写入 `.env`。例如：
 
 ```env
 PUID=1026
 PGID=100
 ```
 
-**第三步：确认配对成功**
+如果 `data/` 由当前账号创建，也可以使用以下命令查询：
 
-不用真的跑同步，直接验证能否写入：
+```bash
+id -u
+id -g
+```
+
+写权限可通过以下命令验证：
 
 ```bash
 docker compose -f compose.image.yml run --rm --entrypoint sh gallery \
   -c 'id && touch /app/data/.write-test && echo "可写 ✓" && rm /app/data/.write-test'
 ```
 
-- 看到 `可写 ✓` → 配置正确
-- 看到 `Permission denied` → `PUID` / `PGID` 填错了，回到第一步
+- 输出 `可写 ✓`：权限配置正常。
+- 输出 `Permission denied`：检查 `PUID`、`PGID` 与 `data/` 目录属主是否一致。
 
-> 这条命令只在 **Linux / NAS 上能反映真实情况**。macOS 和 Windows 的 Docker Desktop
-> 不强制 UID，即使 `PUID` 填错也会显示「可写」——所以桌面系统上它不能用来判断配置对错
-> （但桌面系统本来也不需要设置，见下表）。
+macOS 和 Windows 的 Docker Desktop 通常不强制挂载目录使用相同 UID/GID，因此一般无需修改这两个变量。上述写权限测试在 Linux 和 NAS 上最有参考价值。
 
-**配错时的症状**：容器能正常启动，`/admin` 也能打开，但**一按「立即同步」就报权限错误**
-（`EACCES` / `Permission denied`）。命令行同步同样失败。这是最容易误判成「程序坏了」的情况——
-其实只是身份不匹配。
+> `PUID` 和 `PGID` 同时作用于 `gallery` 与 `sync` 服务，因为两个服务都会写入 `data/`。
 
-| 平台                                       | 需要设置吗                                     |
-| ------------------------------------------ | ---------------------------------------------- |
-| **Linux / NAS（群晖、威联通、Unraid 等）** | **需要**。默认的 `1000` 几乎肯定不是你的用户   |
-| macOS / Windows 上的 Docker Desktop        | **不用**。桌面版的挂载不强制 UID，设不设都能写 |
+## 对象存储与 CDN
 
-> **为什么两个容器都需要它**：管理端容器（上传、删除、同步）和命令行容器都会写入
-> `data/`，所以 `PUID` / `PGID` 对两者都生效。它不是命令行专属配置。
->
-> **只需要写权限**：镜像内的程序代码对所有用户可读，所以只有 `data/` 需要身份匹配。
-> 你不需要为「读代码」做任何额外配置。
+Framefolio 支持兼容 S3 的对象存储，例如 Cloudflare R2、AWS S3、阿里云 OSS 和 MinIO。未配置对象存储时，所有图片均由本地服务提供。
 
-### 常用可选项
+### 工作方式
 
-```env
-FRAMEFOLIO_PORT=3123
-FRAMEFOLIO_IMAGE=wungjyan/framefolio:1.0.0
-```
+对象存储配置完整后，每次同步都会同时保留本地派生图，并将缩略图和预览图上传到对象存储。`FRAMEFOLIO_STORAGE_SOURCE` 只决定公开画廊当前使用哪一类图片 URL，不控制是否上传：
 
-| 变量                           | 默认                         | 说明                                                                        |
-| ------------------------------ | ---------------------------- | --------------------------------------------------------------------------- |
-| `FRAMEFOLIO_PORT`              | `3123`                       | 对外访问端口                                                                |
-| `FRAMEFOLIO_IMAGE`             | `wungjyan/framefolio:latest` | 镜像版本。建议固定版本号，避免 `latest` 意外升级                            |
-| `FRAMEFOLIO_SESSION_TTL`       | `604800`（7 天）             | 登录状态有效期（秒）                                                        |
-| `FRAMEFOLIO_SESSION_SECRET`    | 同管理端口令                 | 用于签名登录 Cookie。一般不用设；单独设置可在不改口令的情况下让所有登录失效 |
-| `FRAMEFOLIO_MAX_UPLOAD_BYTES`  | `104857600`（100 MB）        | 单个上传文件大小上限                                                        |
-| `FRAMEFOLIO_MAX_UPLOAD_PIXELS` | `120000000`                  | 单张像素上限，防止超大图耗尽内存                                            |
+| `FRAMEFOLIO_STORAGE_SOURCE` | 公开画廊使用的图片源                                        | 同步时上传对象存储   |
+| --------------------------- | ----------------------------------------------------------- | -------------------- |
+| `local`                     | 本地 `/media/...` 地址                                      | 是，只要 S3 配置完整 |
+| `r2`                        | `FRAMEFOLIO_S3_PUBLIC_BASE_URL`；未上传成功的照片回退到本地 | 是                   |
 
-### 进阶：对象存储 / CDN
+这种设计允许对象存储在本地访问模式下持续保持最新，之后可直接切换，无需重新处理照片。上传失败不会中断本地发布；失败的照片会继续使用本地地址，并在后续同步中重试。
 
-**只使用本地存储时，一个都不需要配置。** 这是默认状态，也是绝大多数自用场景的推荐配置。
+> 管理端选择的图片源会保存到 `data/.state/storage.json`，并优先于 `FRAMEFOLIO_STORAGE_SOURCE`。因此，该环境变量是首次运行时的初始值，而不是每次启动时强制覆盖管理端选择。
 
-需要它的典型情况：外网访问图片慢，想用 CDN 加速；或你有大量照片、想让 NAS 少承担出网带宽。
+### Cloudflare R2 配置示例
 
-配置方式见下方[对象存储（CDN 加速）](#对象存储cdn-加速)。
+以下内容仅以 Cloudflare R2 演示完整配置流程，并不表示 Framefolio 只支持 R2。其他兼容 S3 的服务同样可以使用，只需根据服务商文档替换 Endpoint、Region、访问凭据和寻址方式等配置。
 
----
-
-## 对象存储（CDN 加速）
-
-图片可以改由任意兼容 S3 的对象存储提供（目标是 Cloudflare R2，也支持阿里云 OSS、
-AWS S3、自建 MinIO 等）。**本地磁盘始终保留，作为逐张回退方案。**
-
-### 配置步骤
-
-1. 建好存储桶，创建一个具有**对象读写权限**的 API Token。
-2. 给存储桶绑定自定义域名。
-   > 建议用自定义域名，而不是 `r2.dev`——后者有速率限制且不走 CDN 缓存。
-3. 把以下变量写入 `.env`：
+1. 创建一个 R2 存储桶。
+2. 创建 R2 API 令牌，权限选择「**对象读和写**」，并尽量限制到 Framefolio 使用的特定存储桶。Framefolio 需要上传、列举和删除对象，不需要「管理员读和写」权限。具体步骤可参考 [Cloudflare R2 API 令牌文档](https://developers.cloudflare.com/r2/api/tokens/)。
+3. 为存储桶配置公开访问地址。生产环境建议绑定自定义域名；`r2.dev` 更适合测试。
+4. 将配置写入 `.env`：
 
 ```env
+# 初始访问源：local 或 r2
 FRAMEFOLIO_STORAGE_SOURCE=local
 
+# R2 S3 API 地址，不要在末尾添加存储桶名称
 FRAMEFOLIO_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 FRAMEFOLIO_S3_REGION=auto
-FRAMEFOLIO_S3_BUCKET=你的桶名
-FRAMEFOLIO_S3_ACCESS_KEY_ID=你的AccessKey
-FRAMEFOLIO_S3_SECRET_ACCESS_KEY=你的SecretKey
+FRAMEFOLIO_S3_BUCKET=example-bucket
+FRAMEFOLIO_S3_ACCESS_KEY_ID=example-access-key
+FRAMEFOLIO_S3_SECRET_ACCESS_KEY=example-secret-key
 
-# 公开访问地址：填你的自定义域名
+# 存储桶的公开访问地址，例如绑定的自定义域名
 FRAMEFOLIO_S3_PUBLIC_BASE_URL=https://img.example.com
+
+# 可选：专用存储桶通常留空
+FRAMEFOLIO_S3_PREFIX=
+FRAMEFOLIO_S3_FORCE_PATH_STYLE=false
 ```
 
-4. 重启容器，然后在 `/admin` 里把访问源切到「**对象存储**」。
+`FRAMEFOLIO_S3_ENDPOINT` 是 S3 API 服务地址，存储桶名称应单独填写在 `FRAMEFOLIO_S3_BUCKET` 中。例如，不要写成 `https://<account-id>.r2.cloudflarestorage.com/example-bucket`。
 
-### 它如何工作
+创建令牌后，Cloudflare 会提供 Access Key ID 和 Secret Access Key，分别对应 `FRAMEFOLIO_S3_ACCESS_KEY_ID` 与 `FRAMEFOLIO_S3_SECRET_ACCESS_KEY`。Secret Access Key 通常只显示一次，应妥善保存且不要提交到代码仓库。
 
-只要配置了对象存储，**每次同步都会上传派生图**，与你当前使用哪个源无关。这带来三个好处：
+### 变量说明
 
-- **切换源不需要重新同步**——只是换个 URL 前缀，文件名完全相同
-- **上传失败会自愈**——下次同步自动补传，不会一直失败下去
-- **未上传的照片逐张回退本地**——部分上传不会出现白图
+| 变量                              | 默认值  | 说明                               |
+| --------------------------------- | ------- | ---------------------------------- |
+| `FRAMEFOLIO_STORAGE_SOURCE`       | `local` | 初始图片源，可设为 `local` 或 `r2` |
+| `FRAMEFOLIO_S3_ENDPOINT`          | 空      | S3 API 服务地址，不包含存储桶名称  |
+| `FRAMEFOLIO_S3_REGION`            | `auto`  | S3 区域；Cloudflare R2 使用 `auto` |
+| `FRAMEFOLIO_S3_BUCKET`            | 空      | 存储桶名称                         |
+| `FRAMEFOLIO_S3_ACCESS_KEY_ID`     | 空      | S3 Access Key ID                   |
+| `FRAMEFOLIO_S3_SECRET_ACCESS_KEY` | 空      | S3 Secret Access Key               |
+| `FRAMEFOLIO_S3_PUBLIC_BASE_URL`   | 空      | 浏览器访问图片时使用的公开基础地址 |
+| `FRAMEFOLIO_S3_PREFIX`            | 空      | 添加到所有对象键前的可选目录前缀   |
+| `FRAMEFOLIO_S3_FORCE_PATH_STYLE`  | `false` | 是否使用路径形式访问 S3 API        |
 
-`FRAMEFOLIO_S3_PUBLIC_BASE_URL` 只是一个字符串前缀。填自定义域名、`r2.dev`
-或 MinIO 地址，代码行为完全相同，没有任何分支。
+#### `FRAMEFOLIO_S3_PREFIX`
 
-<details>
-<summary>其他可选变量</summary>
+该变量用于在存储桶中为 Framefolio 对象添加统一前缀，适合多个站点或应用共用一个存储桶。例如：
 
-| 变量                             | 说明                                    |
-| -------------------------------- | --------------------------------------- |
-| `FRAMEFOLIO_S3_PREFIX`           | 对象键前缀，便于多个站点共用一个桶      |
-| `FRAMEFOLIO_S3_FORCE_PATH_STYLE` | 自建服务（如 MinIO）通常需要设为 `true` |
+```env
+FRAMEFOLIO_S3_PREFIX=framefolio
+```
 
-</details>
+对象会保存为：
 
----
+```text
+framefolio/<派生图标识>-thumbnail.webp
+framefolio/<派生图标识>-preview.webp
+```
 
-## 从源码运行（开发用）
+如果存储桶只供一个 Framefolio 实例使用，建议留空。
 
-需要 Node.js `^22.19.0`、`^24.11.0` 或 `>=26.0.0`，以及 pnpm 11。
+> 已经完成对象存储同步后，不建议直接修改前缀。当前索引会记录照片是否已上传，但仅修改前缀不会让未变化的照片自动重新上传。确需调整时，应先保持本地图片源，将旧前缀下的对象迁移到新前缀，再通过管理端确认远端对象完整后切换访问源。
+
+#### `FRAMEFOLIO_S3_FORCE_PATH_STYLE`
+
+该变量控制 S3 API 请求中的存储桶寻址方式：
+
+- `false`：虚拟主机形式，例如 `https://<bucket>.<endpoint>/<object>`。
+- `true`：路径形式，例如 `https://<endpoint>/<bucket>/<object>`。
+
+Cloudflare R2、AWS S3 和多数云对象存储通常保持 `false`；MinIO 等自托管 S3 服务通常需要设为 `true`。该变量只影响 Framefolio 调用 S3 API 的方式，不影响 `FRAMEFOLIO_S3_PUBLIC_BASE_URL`。
+
+### 启用与检查
+
+修改 `.env` 后重新创建 `gallery` 服务：
+
+```bash
+docker compose -f compose.image.yml up -d gallery
+```
+
+进入 `/admin` 检查对象存储连接状态，然后执行一次同步。已有照片只有在同步后才会上传到新配置的对象存储。确认远端对象完整后，可在管理端将访问源切换为「对象存储」。
+
+`FRAMEFOLIO_S3_PUBLIC_BASE_URL` 仅用于拼接公开图片 URL，可以填写 R2 自定义域名、`r2.dev` 或其他 S3 服务的公开地址。未提供公开地址时，即使对象已经上传，公开画廊也会继续使用本地图片地址。
+
+## 数据与备份
+
+| 路径               | 内容                 | 备份建议                         |
+| ------------------ | -------------------- | -------------------------------- |
+| `data/originals/`  | 原始照片             | 必须备份，这是主要的不可再生数据 |
+| `data/photos.json` | 照片索引与 EXIF 信息 | 建议备份，可减少重建时间         |
+| `data/.state/`     | 存储源等运行状态     | 建议备份                         |
+| `data/generated/`  | WebP 缩略图与预览图  | 可选，可通过同步重新生成         |
+| `data/.trash/`     | 已删除的原图         | 按恢复需求决定；不会自动清理     |
+
+`data/photos.json` 和 `data/generated/` 都可以根据 `data/originals/` 重新生成。备份恢复后运行一次同步，即可重建公开画廊。
+
+## 更新与运维
+
+查看服务状态：
+
+```bash
+docker compose -f compose.image.yml ps
+```
+
+查看日志：
+
+```bash
+docker compose -f compose.image.yml logs -f gallery
+```
+
+停止服务：
+
+```bash
+docker compose -f compose.image.yml down
+```
+
+更新镜像并重新创建服务：
+
+```bash
+docker compose -f compose.image.yml pull
+docker compose -f compose.image.yml up -d gallery
+```
+
+生产环境建议通过 `FRAMEFOLIO_IMAGE` 固定版本标签，并在更新前备份 `data/originals/`。
+
+### 从旧版本升级
+
+如果旧版 `data/photos.json` 与当前索引格式不兼容，公开画廊会提示索引需要重建。此时进入 `/admin` 执行一次「立即同步」，或运行命令行同步。
+
+首次重建可能需要重新生成所有派生图片；后续同步会恢复为增量处理。照片数量较多时，可使用命令行同步查看实时进度。
+
+## 安全建议
+
+- 为 `FRAMEFOLIO_ADMIN_PASSWORD` 设置随机且足够长的口令。
+- 管理端暴露到公网时，建议在反向代理层增加 Cloudflare Access、HTTP Basic Auth 等额外认证。
+- 仅通过 HTTPS 访问公网部署，避免登录凭据和会话 Cookie 经明文传输。
+- 定期备份 `data/originals/`，并根据需要备份 `data/.trash/`。
+
+`robots.txt` 和 `noindex` 响应头只用于降低管理端被搜索引擎收录的可能性，不属于访问控制措施。未登录访问者仍能打开 `/admin` 登录页，真正的访问保护来自管理端口令及反向代理认证。
+
+## 从源码运行
+
+### 环境要求
+
+- Node.js `^22.19.0`、`^24.11.0` 或 `>=26.0.0`
+- pnpm 11
 
 ```bash
 git clone https://github.com/wungjyan/framefolio.git
@@ -321,179 +358,130 @@ corepack enable
 pnpm install
 ```
 
-**开发模式**（带热重载）：
+开发模式：
 
 ```bash
 pnpm dev
 ```
 
-开发模式会自动读取 `.env` 和 `.env.local`，所以你可以把口令写进文件而不是每次敲命令：
+开发模式会依次读取 `.env` 和 `.env.local`。适合本机使用的配置可写入已被 Git 忽略的 `.env.local`：
 
 ```env
-# .env.local（个人配置，已被 .gitignore 忽略）
-FRAMEFOLIO_ADMIN_PASSWORD=你的口令
+FRAMEFOLIO_ADMIN_PASSWORD=replace-with-a-local-password
 ```
 
-**生产模式**：
+生产模式：
 
 ```bash
 pnpm build
-FRAMEFOLIO_ADMIN_PASSWORD=你的口令 NITRO_HOST=0.0.0.0 NITRO_PORT=3123 \
+FRAMEFOLIO_ADMIN_PASSWORD=replace-with-a-strong-password \
+  NITRO_HOST=0.0.0.0 \
+  NITRO_PORT=3123 \
   node .output/server/index.mjs
 ```
 
-> 构建本身不需要口令，**运行时才需要**。
+构建阶段不需要管理端口令，运行阶段才会读取相关配置。
 
-### 配置文件怎么生效
+### 配置加载规则
 
-三种运行方式读取配置的来源不同，这一点容易踩坑：
+| 运行方式                        | `.env` | `.env.local`     | 进程环境变量 |
+| ------------------------------- | ------ | ---------------- | ------------ |
+| `pnpm dev`                      | 读取   | 读取，优先级更高 | 最高优先级   |
+| `pnpm gallery:sync`             | 读取   | 读取，优先级更高 | 最高优先级   |
+| `node .output/server/index.mjs` | 读取   | 不读取           | 最高优先级   |
+| Docker Compose                  | 读取   | 不传入容器       | 最高优先级   |
 
-| 运行方式                   | `.env` | `.env.local`   | 真实环境变量 |
-| -------------------------- | ------ | -------------- | ------------ |
-| `pnpm dev`（开发）         | ✅     | ✅（**优先**） | ✅（最高）   |
-| `node .output/...`（生产） | ✅     | ❌ **不读**    | ✅（最高）   |
-| Docker Compose             | ✅     | ❌ 不进镜像    | ✅           |
+服务启动时会记录实际加载的配置键名，但不会输出配置值。
 
-规则：
+### 从源码构建容器镜像
 
-1. **真实环境变量优先级最高**，永远不会被文件覆盖——所以容器里的配置不会被误改。
-2. **开发模式**读 `.env` 和 `.env.local`，后者覆盖前者（符合「本地个人配置」的惯例）。
-3. **生产模式只读 `.env`**，不读 `.env.local`——避免开发者的个人配置意外影响线上。
-4. `.env.local` 已被 `.gitignore` 和 `.dockerignore` 排除，**不会提交、也不会进镜像**。
+仓库包含两个 Compose 文件：
 
-> 服务器启动时会在日志里打印从哪个文件加载了哪些配置项（**只打键名，不打印值**），
-> 方便确认配置是否生效。例如：
->
-> ```text
-> [framefolio] Loaded 1 setting(s) from .env, .env.local: FRAMEFOLIO_ADMIN_PASSWORD
-> ```
+| 文件                 | 镜像来源                     | 适用场景             |
+| -------------------- | ---------------------------- | -------------------- |
+| `compose.image.yml`  | 拉取已发布的 Docker Hub 镜像 | 常规部署，推荐       |
+| `docker-compose.yml` | 根据本地源码构建镜像         | 开发、调试或定制代码 |
 
-> 命令行同步（`pnpm gallery:sync`）是独立进程，同样会读取这些文件。
-
-### 从源码构建 Docker 镜像
-
-只在你要修改代码时用。需要 Docker Engine 与 Docker Compose v2。
+从源码构建并启动：
 
 ```bash
 git clone https://github.com/wungjyan/framefolio.git
 cd framefolio
-cp .env.example .env      # 然后编辑 .env，设置管理端口令
+cp .env.example .env
+# 编辑 .env，至少设置管理端口令
 docker compose build
 docker compose up -d gallery
 ```
 
-### 两个 compose 文件的区别
-
-仓库里有**两个** compose 文件，用途不同，**平时只需要用其中一个**：
-
-| 文件                 | 镜像来源                       | 什么时候用                                           |
-| -------------------- | ------------------------------ | ---------------------------------------------------- |
-| `compose.image.yml`  | 拉取 Docker Hub 上已发布的镜像 | **推荐**。部署时就用这个，不需要源码、不需要本机构建 |
-| `docker-compose.yml` | 从本机源码构建镜像             | 只在你要**改代码**时用                               |
-
-**两者功能完全相同**——容器、挂载、环境变量、健康检查都一样，唯一区别是镜像从哪来。
-
-> 所以部署时请**只用 `compose.image.yml`**，可以完全不理 `docker-compose.yml`。
+两个 Compose 文件提供相同的服务、挂载、环境变量和健康检查，区别仅在于镜像来源。
 
 ### 开发命令
 
 ```bash
-pnpm dev          # 开发服务器（热重载）
-pnpm build        # 生产构建
-pnpm test         # 单元测试
-pnpm typecheck    # 类型检查
-pnpm lint         # 代码检查
-pnpm format       # 代码格式化
+pnpm dev          # 启动开发服务器
+pnpm build        # 构建生产版本
+pnpm test         # 运行单元测试
+pnpm typecheck    # 运行类型检查
+pnpm lint         # 运行代码检查
+pnpm format       # 格式化代码与文档
 ```
-
----
 
 ## 常见问题
 
-### `/admin` 显示「管理端未启用」
+### `/admin` 显示“管理端未启用”
 
-没有设置 `FRAMEFOLIO_ADMIN_PASSWORD`。设置后重启容器即可。
-
-注意：**公开画廊不受影响**，始终可以正常访问。
-
-### 同步报权限错误
-
-`PUID` / `PGID` 与 `data/` 目录的属主不一致，多见于 Linux / NAS。
+`FRAMEFOLIO_ADMIN_PASSWORD` 未设置或为空。补充配置后重新创建 `gallery` 服务：
 
 ```bash
-id -u    # 得到 PUID
-id -g    # 得到 PGID
-```
-
-写进 `.env` 后重启即可。完整步骤与验证命令见
-[Linux / NAS 用户必看](#linux-nas-用户必看puid-与-pgid)。
-
-### 从旧版本升级
-
-索引格式已改变，**公开画廊在你同步一次之前会显示错误状态**。
-
-打开 `/admin` 点一次「**立即同步**」即可恢复。管理端在同步前依然可用，并会提示
-「索引需要重建」。
-
-> **首次同步会重新生成全部缩略图**（旧索引无法复用），之后都是增量同步。
-> 照片数量多时请耐心等待几分钟。
-
-### 想改用 CDN 加速
-
-见[对象存储（CDN 加速）](#对象存储cdn-加速)。可以随时启用，也可以随时切回本地，
-不需要重新部署，也不需要重新处理已有图片。
-
-### 照片删了但网站上还在
-
-这是设计如此——删除只是把原图移入 `data/.trash/`，需要点「立即同步」才会从网站移除。
-确认不再需要时，手动删掉 `.trash/` 里的文件即可（不会自动清理）。
-
----
-
-## 运维
-
-```bash
-# 查看状态
-docker compose -f compose.image.yml ps
-
-# 查看日志
-docker compose -f compose.image.yml logs -f gallery
-
-# 停止
-docker compose -f compose.image.yml down
-
-# 更新到新版本
-docker compose -f compose.image.yml pull
 docker compose -f compose.image.yml up -d gallery
 ```
 
-### 安全建议
+公开画廊不受影响，仍可正常访问。
 
-`/admin` 可以暴露在公网，因此建议**在反向代理层再追加一层认证**
-（Cloudflare Access、HTTP Basic Auth 等）。
+### 同步时出现 `EACCES` 或 `Permission denied`
 
-`robots.txt` 与 `noindex` 响应头只用于**防止被搜索引擎收录**，**不是访问控制**——
-任何人都能直接打开 `/admin` 并看到登录页。真正的防线是管理端口令。
+容器运行身份与 `data/` 目录权限不匹配。Linux 和 NAS 用户可参考 [Linux 与 NAS 文件权限](#linux-与-nas-文件权限) 检查 `PUID` 与 `PGID`。
 
----
+### 已上传照片，但公开画廊没有变化
 
-## 发布 Docker Hub 镜像
+上传和复制文件不会自动发布。进入 `/admin` 点击「立即同步」，或运行：
 
-维护者登录 Docker Hub 后，可以通过发布脚本构建并推送多架构镜像：
+```bash
+docker compose -f compose.image.yml run --rm sync
+```
+
+### 已删除照片，但公开画廊仍在显示
+
+删除操作只会将原图移入 `data/.trash/`。完成下一次同步后，照片才会从公开画廊中移除。
+
+### 对象存储已配置，但管理端无法切换
+
+检查所有必需的 `FRAMEFOLIO_S3_*` 变量是否已传入容器，并在修改 `.env` 后重新创建 `gallery` 服务。可通过以下命令检查日志：
+
+```bash
+docker compose -f compose.image.yml logs gallery
+```
+
+## 维护者：发布 Docker 镜像
+
+<details>
+<summary>展开发布说明</summary>
+
+登录 Docker Hub 后，可通过发布脚本构建并推送多架构镜像：
 
 ```bash
 docker login
 ./scripts/docker-publish.sh 1.0.0
 ```
 
-脚本默认推送以下镜像：
+默认推送：
 
 ```text
 wungjyan/framefolio:1.0.0
 wungjyan/framefolio:latest
 ```
 
-如需使用其他仓库、平台或 npm 镜像源，可通过环境变量覆盖：
+仓库、构建平台和 npm 镜像源可以通过环境变量覆盖：
 
 ```bash
 IMAGE_REPOSITORY=example/framefolio \
@@ -503,3 +491,9 @@ NPM_REGISTRY=https://registry.npmjs.org \
 ```
 
 设置 `PUBLISH_LATEST=false` 可只推送指定版本标签。
+
+</details>
+
+## 许可证
+
+本项目基于 [MIT License](./LICENSE) 开源。
