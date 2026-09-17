@@ -111,20 +111,18 @@ export interface AdminSyncStatusResponse {
   }
 }
 
-/** Response of `POST /api/admin/sync`. */
+/**
+ * Response of `POST /api/admin/sync`.
+ *
+ * The request only starts the run and answers immediately, so the outcome is
+ * not known here. Poll `GET /api/admin/sync` for progress and for the final
+ * `last` record, including its summary and errors.
+ */
 export interface AdminSyncStartResponse {
   started: boolean
   jobId: string
-  /** Final status of the run, since the request waits for completion. */
-  status?: 'running' | 'succeeded' | 'failed'
-  summary?: {
-    added: number
-    updated: number
-    skipped: number
-    deleted: number
-    failed: number
-  }
-  errors?: { filename: string; message: string }[]
+  /** Always `running`: the run was started but is not awaited by the request. */
+  status?: 'running'
 }
 
 /** Response of `PUT /api/admin/photos/:filename`. */

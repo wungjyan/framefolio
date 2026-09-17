@@ -11,7 +11,8 @@ import {
   SyncAlreadyRunningError,
   assertSyncNotRunning,
   resolveProjectRoot,
-  runSyncJob
+  runSyncJob,
+  startSyncJob
 } from '../../shared/node/sync-runner'
 import type { GalleryPaths } from '../../shared/node/gallery-paths'
 
@@ -126,6 +127,73 @@ describe('sync runner', () => {
     )
 
     await running
+  }, 60_000)
+
+  it('returns as soon as the run is started, without waiting for it', async () => {
+    // The regression this guards: the admin request used to stay open for the
+    // whole sync, so a reverse proxy would time out with 504 while the sync
+    // itself succeeded. Starting must not block on the child process.
+    const { job, completion } = await startSyncJob({ paths, projectRoot })
+
+    expect(job.status).toBe('running')
+
+    // The run is genuinely still in flight at this point: the start call has
+    // already returned while the ledger row is not finalised yet. (If the sync
+    // were instantaneous this could race, so accept either an unfinished or a
+    // just-finished record and rely on the assertions below for the real
+    // contract.)
+    const settled = await completion
+    expect(settled.job.status).toBe('succeeded')
+  }, 60_000)
+
+  it('records a running job in the ledger before the start call resolves', async () => {
+    const { job, completion } = await startSyncJob({ paths, projectRoot })
+    const ledger = await readJobsLedger(paths.jobs)
+
+    expect(ledger.current?.id).toBe(job.id)
+    expect(ledger.current?.status).toBe('running')
+
+    await completion
+  }, 60_000)
+
+  it('finalises the ledger even when the caller does not await completion', async () => {
+    // The admin API detaches from `completion`; the ledger must still end up
+    // correct, because that record is the only thing the UI polls.
+    const { job, completion } = await startSyncJob({ paths, projectRoot })
+
+    // Deliberately do not await `completion` before checking.
+    await waitFor(async () => {
+      const ledger = await readJobsLedger(paths.jobs)
+
+      return ledger.current === undefined && ledger.last?.id === job.id
+    })
+
+    expect((await readJobsLedger(paths.jobs)).last?.status).toBe('succeeded')
+
+    // Drain it so the test does not leave work running.
+    await completion
+  }, 60_000)
+
+  it('never rejects completion, so a detached run cannot crash the process', async () => {
+    // A run whose child cannot be spawned at all is the worst case: with the
+    // old implementation this surfaced as a rejected promise. The runner must
+    // convert it into a failed ledger record instead.
+    const { completion } = await startSyncJob({
+      paths,
+      projectRoot,
+      nodePath: join(root, 'definitely-not-a-real-node-binary')
+    })
+
+    await expect(completion).resolves.toBeDefined()
+    await waitFor(async () => {
+      const ledger = await readJobsLedger(paths.jobs)
+
+      return ledger.last?.status === 'failed'
+    })
+
+    const ledger = await readJobsLedger(paths.jobs)
+    expect(ledger.last?.message).toBeTruthy()
+    expect(ledger.current).toBeUndefined()
   }, 60_000)
 })
 

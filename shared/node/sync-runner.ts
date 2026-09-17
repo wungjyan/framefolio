@@ -36,6 +36,19 @@ export interface SyncRunResult {
   outcome?: GallerySyncOutcome
 }
 
+export interface SyncJobHandle {
+  /** The ledger record as written at start; its status is still `running`. */
+  job: GallerySyncJob
+  /**
+   * Resolves once the child process has exited and the ledger is finalised.
+   *
+   * It never rejects. Nothing awaits a detached run, so a rejection would be
+   * unhandled and would take the server down; failures are reported through
+   * the ledger instead, which is what the admin UI polls.
+   */
+  completion: Promise<SyncRunResult>
+}
+
 export class SyncAlreadyRunningError extends Error {
   readonly holderPid: number | undefined
 
@@ -82,13 +95,22 @@ export function resolveProjectRoot(fromUrl: string): string {
  * image with a native fault that no try/catch can contain, and a subprocess
  * keeps the web server alive when that happens.
  *
- * Returns as soon as the run finishes. Callers that do not want to wait should
- * not await it (the admin API awaits it because the run is fast, and the UI
- * polls the ledger for progress).
+ * Returns as soon as the child has been spawned, together with a `completion`
+ * promise that settles when the run is over. Callers that only need to trigger
+ * a run (the admin API) can return immediately and let the UI follow progress
+ * through `GET /api/admin/sync`, which reads the same ledger.
+ *
+ * That split is what keeps the HTTP request short. Awaiting the whole run in
+ * the request handler used to hold the connection open for the entire sync —
+ * measured at ~28s for a 24-photo first import on an M4, and considerably
+ * longer on NAS hardware. Any reverse proxy or tunnel in front of the app
+ * (nginx `proxy_read_timeout`, frp `vhost_http_timeout`, both defaulting to
+ * 60s) would then answer 504 while the sync itself carried on to completion,
+ * which is confusing precisely because the work succeeds.
  */
-export async function runSyncJob(
+export async function startSyncJob(
   options: SyncRunnerOptions
-): Promise<SyncRunResult> {
+): Promise<SyncJobHandle> {
   const { paths, projectRoot } = options
   const scriptPath = join(projectRoot, 'scripts', 'gallery-sync.ts')
   const nodePath = options.nodePath ?? process.execPath
@@ -124,6 +146,7 @@ export async function runSyncJob(
   let outcome: GallerySyncOutcome | undefined
   let lockMessage: string | undefined
   let fatalMessage: string | undefined
+  let spawnError: string | undefined
   let stderrBuffer = ''
 
   child.stdout.setEncoding('utf8')
@@ -152,48 +175,98 @@ export async function runSyncJob(
     stderrBuffer += chunk
   })
 
-  const exitCode = await new Promise<number | null>(
-    (resolvePromise, reject) => {
-      child.on('error', reject)
-      child.on('close', code => resolvePromise(code))
-    }
-  )
+  // A spawn failure (ENOENT, EACCES) arrives as an 'error' event, not as a
+  // non-zero exit code. Recording it here keeps the exit-code promise from
+  // depending on which of the two events happens to fire.
+  child.on('error', (error: Error) => {
+    spawnError = error.message
+  })
 
-  const failed = exitCode !== 0 || fatalMessage !== undefined
+  /**
+   * Settle the ledger when the child is gone.
+   *
+   * `completion` is the only place the run's outcome is recorded, and it is
+   * deliberately not awaited by its creator: a caller that returned early still
+   * gets a finalised ledger. Every rejection path is converted into a
+   * `failed` record, because an unhandled rejection here would crash the
+   * server — the exact opposite of the child-process isolation this file is
+   * built around.
+   */
+  const completion = new Promise<SyncRunResult>(resolvePromise => {
+    child.on('close', async (code: number | null) => {
+      try {
+        const exitCode = spawnError ? 1 : code
+        const failed = exitCode !== 0 || fatalMessage !== undefined
 
-  if (lockMessage) {
-    await finishJob(paths.jobs, jobId, {
-      status: 'failed',
-      message: lockMessage
-    })
-  } else if (failed && !outcome) {
-    await finishJob(paths.jobs, jobId, {
-      status: 'failed',
-      message:
-        fatalMessage ??
-        stderrBuffer.trim() ??
-        `The sync process exited with code ${exitCode}.`
-    })
-  } else if (outcome) {
-    await finishJob(paths.jobs, jobId, {
-      status: outcome.errors.length > 0 || failed ? 'failed' : 'succeeded',
-      summary: outcome.summary,
-      errors: outcome.errors,
-      warnings: outcome.warnings
-    })
-  } else {
-    await finishJob(paths.jobs, jobId, {
-      status: 'failed',
-      message: `The sync process exited with code ${exitCode} without reporting a result.`
-    })
-  }
+        if (lockMessage) {
+          await finishJob(paths.jobs, jobId, {
+            status: 'failed',
+            message: lockMessage
+          })
+        } else if (failed && !outcome) {
+          await finishJob(paths.jobs, jobId, {
+            status: 'failed',
+            message:
+              fatalMessage ??
+              spawnError ??
+              stderrBuffer.trim() ??
+              `The sync process exited with code ${exitCode}.`
+          })
+        } else if (outcome) {
+          await finishJob(paths.jobs, jobId, {
+            status:
+              outcome.errors.length > 0 || failed ? 'failed' : 'succeeded',
+            summary: outcome.summary,
+            errors: outcome.errors,
+            warnings: outcome.warnings
+          })
+        } else {
+          await finishJob(paths.jobs, jobId, {
+            status: 'failed',
+            message: `The sync process exited with code ${exitCode} without reporting a result.`
+          })
+        }
 
-  const ledger = await readJobsLedger(paths.jobs)
+        const ledger = await readJobsLedger(paths.jobs)
 
-  return {
-    job: ledger.last ?? job,
-    ...(outcome ? { outcome } : {})
-  }
+        resolvePromise({
+          job: ledger.last ?? job,
+          ...(outcome ? { outcome } : {})
+        })
+      } catch (error: unknown) {
+        // Finalising the ledger must not become an unhandled rejection. Report
+        // the failure through the same channel as any other failed run.
+        resolvePromise({
+          job: {
+            ...job,
+            status: 'failed',
+            finishedAt: new Date().toISOString(),
+            message: `Could not record the sync outcome: ${
+              error instanceof Error ? error.message : String(error)
+            }`
+          }
+        })
+      }
+    })
+  })
+
+  return { job, completion }
+}
+
+/**
+ * Start a sync and wait for it to finish.
+ *
+ * A convenience wrapper used by tests, which genuinely need the final result.
+ * The CLI does not go through this module at all: it calls `runGallerySync`
+ * in-process. The admin API uses `startSyncJob` so its request does not stay
+ * open for the length of the run.
+ */
+export async function runSyncJob(
+  options: SyncRunnerOptions
+): Promise<SyncRunResult> {
+  const { completion } = await startSyncJob(options)
+
+  return completion
 }
 
 /**

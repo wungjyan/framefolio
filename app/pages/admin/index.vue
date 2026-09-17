@@ -59,13 +59,27 @@ const confirmOpen = computed({
   }
 })
 
+/** How often the ledger is checked while a sync runs. */
+const SYNC_POLL_INTERVAL_MS = 1000
+/** Give up watching a run after this many consecutive status failures. */
+const MAX_POLL_FAILURES = 5
+
 let pollTimer: ReturnType<typeof setTimeout> | undefined
+let resolveSyncWatch: (() => void) | undefined
+let syncWatch: Promise<void> | undefined
 
 onMounted(async () => {
   await refresh()
 
   if (authenticated.value) {
     await loadAll()
+
+    // A run may already be in flight: the page was reloaded, or another tab
+    // started it. Follow it so progress keeps moving instead of freezing at
+    // the state captured during mount.
+    if (syncStatus.value?.running === true) {
+      await followRunningSync()
+    }
   }
 })
 
@@ -92,11 +106,15 @@ async function loadPhotos(): Promise<void> {
   indexIncompatible.value = result.indexIncompatible === true
 }
 
-async function loadSyncStatus(): Promise<void> {
+async function loadSyncStatus(): Promise<boolean> {
   try {
     syncStatus.value = await api.syncStatus()
+    return true
   } catch {
-    // Status is informational; a failure here must not blank the page.
+    // Status is informational; a failure here must not blank the page. The
+    // caller decides whether a run is still being watched, so report failure
+    // rather than leaving the previous (possibly `running`) value in place.
+    return false
   }
 }
 
@@ -186,40 +204,131 @@ async function onSync(): Promise<void> {
 
   syncing.value = true
   setMessage('正在同步…', 'muted')
-  startPolling()
 
   try {
-    const result = await api.startSync()
-
-    if (result.status === 'failed') {
-      setMessage('同步完成，但部分照片处理失败。', 'warning')
-    } else {
-      setMessage('同步完成。', 'muted')
-    }
-
-    await loadAll()
+    // The POST only starts the run and returns in milliseconds; it does not
+    // carry the result. The outcome is read from the ledger by the polling
+    // below, because a request that waited for the whole sync is what made
+    // reverse proxies (nginx, frp) answer 504 on a slow first import.
+    await api.startSync()
+    await followRunningSync()
   } catch (error: unknown) {
     const statusCode = readStatusCode(error)
 
     if (statusCode === 409) {
-      setMessage('已有同步任务在运行，请等待其完成。', 'warning')
+      // Another run is already in flight (another tab, or the CLI). Follow
+      // that one rather than reporting a failure.
+      setMessage('已有同步任务在运行，正在等待其完成…', 'warning')
+      await followRunningSync()
     } else {
       setMessage(readMessage(error, '同步失败。'), 'warning')
     }
   } finally {
     stopPolling()
     syncing.value = false
-    await loadSyncStatus()
+    // No refresh here: `pollSyncStatus` already reloaded the photos, pending
+    // counts, and storage state the moment the run was observed to finish, and
+    // it does so for every caller — including a reload that never ran `onSync`.
   }
 }
 
-function startPolling(): void {
+/**
+ * Watch the ledger until no run is in flight.
+ *
+ * Resolution is driven by `running` becoming false, never by the start
+ * request, so the caller can await the true end of the run without holding an
+ * HTTP request open.
+ *
+ * Idempotent: a second caller (a button press while another tab's run is
+ * already being followed, or the 409 path) joins the existing watch instead of
+ * replacing its resolver, which would leave the first caller awaiting forever.
+ */
+function followRunningSync(): Promise<void> {
+  if (syncWatch !== undefined) {
+    return syncWatch
+  }
+
+  syncWatch = new Promise<void>(resolve => {
+    resolveSyncWatch = resolve
+  })
+
+  pollFailures = 0
+  startPolling()
+  // Poll once immediately: an incremental run finishes in well under the
+  // interval, and waiting a full second to report it would feel sluggish.
+  void pollSyncStatus()
+
+  return syncWatch
+}
+
+/** Consecutive status failures while watching a run. */
+let pollFailures = 0
+
+async function pollSyncStatus(): Promise<void> {
+  const ok = await loadSyncStatus()
+
+  if (!ok) {
+    pollFailures += 1
+
+    // A connection dropped by the tunnel mid-run would otherwise leave the UI
+    // saying "同步中…" forever, since a stale `running` value is never cleared.
+    // Give up after a few tries and say so; the run itself is unaffected and
+    // the ledger still holds the outcome.
+    if (pollFailures >= MAX_POLL_FAILURES) {
+      setMessage(
+        '无法获取同步进度：与管理端的连接中断。任务可能仍在后台进行，请稍后刷新页面查看结果。',
+        'warning'
+      )
+      stopPolling()
+    }
+    return
+  }
+
+  pollFailures = 0
+
+  if (syncStatus.value?.running === true) {
+    return
+  }
+
+  reportSyncOutcome()
+  // Stop the interval before refreshing, so a tick cannot start a second
+  // overlapping poll while the refresh is in flight.
   stopPolling()
+  // A finished run changes the photo list, the pending counts, and (with object
+  // storage) the remote-copy completeness. Without this the panel would
+  // announce "新增 24" while still listing "待同步 24 项" — which is exactly
+  // what happens when the page is reloaded mid-run, since `onSync` is not the
+  // caller that observed the end of the run.
+  await loadAll().catch(() => {})
+}
+
+/**
+ * Report the finished run from the ledger.
+ *
+ * `last` is the record the server finalised, which is the only place the
+ * summary and errors exist now that the start request returns early.
+ */
+function reportSyncOutcome(): void {
+  const last = syncStatus.value?.last
+
+  if (last?.status === 'failed') {
+    setMessage('同步完成，但存在失败项，详见下方同步面板。', 'warning')
+    return
+  }
+
+  setMessage('同步完成。', 'muted')
+}
+
+function startPolling(): void {
+  if (pollTimer !== undefined) {
+    clearInterval(pollTimer)
+  }
+
   // Progress is polled rather than streamed: SSE support varies across the
   // reverse proxies and tunnels this app runs behind.
   pollTimer = setInterval(() => {
-    void loadSyncStatus()
-  }, 1000)
+    void pollSyncStatus()
+  }, SYNC_POLL_INTERVAL_MS)
 }
 
 function stopPolling(): void {
@@ -227,6 +336,14 @@ function stopPolling(): void {
     clearInterval(pollTimer)
     pollTimer = undefined
   }
+
+  // Release anything still awaiting the run (unmount, logout, a finished run,
+  // or a dropped connection) so no promise is left pending, and so the next
+  // run starts a fresh watch.
+  const resolve = resolveSyncWatch
+  resolveSyncWatch = undefined
+  syncWatch = undefined
+  resolve?.()
 }
 
 function requestDelete(photo: AdminPhoto): void {
