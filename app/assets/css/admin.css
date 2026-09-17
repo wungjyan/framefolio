@@ -19,8 +19,7 @@
      viewports, which is a section separator, not a page margin.
      The bottom keeps the large spacing: it separates the last section from the
      end of the page rather than pushing the header down. */
-  padding: var(--gallery-space-md) var(--gallery-gutter)
-    var(--gallery-space-lg);
+  padding: var(--gallery-space-md) var(--gallery-gutter) var(--gallery-space-lg);
   margin: 0 auto;
 }
 
