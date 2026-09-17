@@ -12,6 +12,7 @@ import type {
 } from '../../../shared/types/admin'
 import { useAdminApi } from '../../composables/useAdminApi'
 import { useAdminSession } from '../../composables/useAdminSession'
+import { storageSourceSwitchMessage } from '../../utils/admin-format'
 
 /**
  * Admin dashboard.
@@ -157,12 +158,7 @@ async function onSelectSource(source: 'local' | 'r2'): Promise<void> {
 
   try {
     storageSource.value = await api.setStorageSource(source)
-    setMessage(
-      source === 'r2'
-        ? '访问源已切换为对象存储。刷新首页即可看到图片走 CDN。'
-        : '访问源已切换为本地。',
-      'muted'
-    )
+    setMessage(storageSourceSwitchMessage(source), 'muted')
     await loadStorage()
   } catch (error: unknown) {
     setMessage(readMessage(error, '切换访问源失败。'), 'warning')

@@ -125,3 +125,17 @@ export function syncProgressText(
 ): string {
   return `${syncPhaseLabel(phase)} · 已检查原图 ${completed} / ${total}`
 }
+
+/**
+ * Confirmation shown after switching the storage source.
+ *
+ * Both directions need a page refresh for the same reason: the switch changes
+ * what `GET /api/photos` returns, but the public gallery is an already-loaded
+ * page that resolved its image URLs when it mounted. Only the r2 wording used to
+ * mention this, which made an identical requirement look like an r2-only quirk.
+ */
+export function storageSourceSwitchMessage(source: 'local' | 'r2'): string {
+  return source === 'r2'
+    ? '访问源已切换为对象存储。刷新首页即可看到图片走 CDN。'
+    : '访问源已切换为本地。刷新首页即可看到图片走本地。'
+}

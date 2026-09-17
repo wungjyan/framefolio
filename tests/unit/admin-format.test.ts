@@ -5,6 +5,7 @@ import {
   formatDateTime,
   formatRelative,
   photoStateLabel,
+  storageSourceSwitchMessage,
   syncPhaseLabel,
   syncProgressText
 } from '../../app/utils/admin-format'
@@ -118,5 +119,34 @@ describe('syncProgressText', () => {
 
     expect(text).toContain('已检查原图')
     expect(text).not.toMatch(/^\d+\s*\/\s*\d+$/)
+  })
+})
+
+describe('storageSourceSwitchMessage', () => {
+  it('tells the user to refresh after switching to r2', () => {
+    const message = storageSourceSwitchMessage('r2')
+
+    expect(message).toContain('对象存储')
+    expect(message).toContain('刷新首页')
+  })
+
+  it('tells the user to refresh after switching to local too', () => {
+    // Switching in either direction changes what /api/photos returns, but the
+    // gallery already resolved its URLs on mount. Mentioning the refresh only
+    // for r2 made an identical requirement look like an r2-only quirk.
+    const message = storageSourceSwitchMessage('local')
+
+    expect(message).toContain('本地')
+    expect(message).toContain('刷新首页')
+  })
+
+  it('uses the same sentence structure for both directions', () => {
+    // Whitespace before Latin text is correct typography ("走 CDN") and wrong
+    // before Chinese ("走本地"), so the invariant is the same *shape*, not the
+    // same whitespace.
+    const shape = /^访问源已切换为.+。刷新首页即可看到图片走\s*.+。$/
+
+    expect(storageSourceSwitchMessage('r2')).toMatch(shape)
+    expect(storageSourceSwitchMessage('local')).toMatch(shape)
   })
 })
