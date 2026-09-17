@@ -35,6 +35,8 @@ export interface FakeS3Server {
   requests: { method: string; path: string; query: Record<string, string> }[]
   /** Set to make every request return 500. */
   failAll: boolean
+  /** Set to make DELETE return 500, without affecting uploads or listings. */
+  failDeletes: boolean
   close: () => Promise<void>
 }
 
@@ -52,7 +54,7 @@ export async function startFakeS3(
   }[] = []
   const pageSize = options.pageSize ?? 1000
   // Declared before the handler so the handler can consult `failAll`.
-  const state = { failAll: false }
+  const state = { failAll: false, failDeletes: false }
 
   const server = createServer(
     async (request: IncomingMessage, response: ServerResponse) => {
@@ -121,6 +123,11 @@ export async function startFakeS3(
       }
 
       if (method === 'DELETE' && key.length > 0) {
+        if (state.failDeletes) {
+          response.writeHead(500).end('simulated delete failure')
+          return
+        }
+
         objects.delete(key)
         response.writeHead(204).end()
         return
@@ -173,6 +180,12 @@ export async function startFakeS3(
     },
     set failAll(value: boolean) {
       state.failAll = value
+    },
+    get failDeletes() {
+      return state.failDeletes
+    },
+    set failDeletes(value: boolean) {
+      state.failDeletes = value
     },
     close: () =>
       new Promise<void>((resolve, reject) =>

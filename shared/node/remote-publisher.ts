@@ -29,6 +29,13 @@ export function createRemotePublisher(
     },
     async remove(fileName) {
       await deleteObject(client, config, fileName)
+    },
+    async list() {
+      const objects = await listObjects(client, config)
+
+      // Bare storage keys, which is what the index stores; `listObjects`
+      // already strips the configured prefix.
+      return objects.map(object => object.key)
     }
   }
 }

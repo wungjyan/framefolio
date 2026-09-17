@@ -57,4 +57,12 @@ export interface RemotePublisher {
   upload: (fileName: string, filePath: string) => Promise<void>
   /** Remove one generated file. A missing object must not throw. */
   remove: (fileName: string) => Promise<void>
+  /**
+   * List the storage keys currently present in the bucket.
+   *
+   * Reconciliation needs a view of the bucket. Relying on the previous index
+   * alone can only clean up photos it remembered, which leaks every superseded
+   * revision and never retries a removal that failed.
+   */
+  list: () => Promise<string[]>
 }

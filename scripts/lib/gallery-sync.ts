@@ -223,16 +223,27 @@ export async function runGallerySync(
     filename => !sourceFilenames.has(filename)
   ).length
 
-  // Remove derivatives of photos that are no longer published. Done before the
-  // index is written so a failure is reported rather than silently leaking
-  // objects that no longer belong to any photo.
-  if (remote) {
-    for (const [filename, photo] of previousByFilename) {
-      if (sourceFilenames.has(filename)) {
-        continue
-      }
+  // List the bucket once up front, so "is this photo already published?" can be
+  // answered from what is actually stored rather than from the index's claim.
+  //
+  // The index records that a revision was uploaded, but the objects can still
+  // disappear underneath it: a delete from the provider dashboard, a lifecycle
+  // rule, an interrupted replication, or a bucket restored from a backup. With
+  // only the index to go on, the sync reported "skipped" and left the CDN
+  // serving broken images forever, while the admin panel promised the next sync
+  // would re-upload them.
+  //
+  // A failed listing degrades to the previous index-only behaviour rather than
+  // forcing a full re-upload.
+  let remoteKeys: Set<string> | undefined
 
-      await removeRemoteDerivatives(remote, photo, filename, warnings)
+  if (remote) {
+    try {
+      remoteKeys = new Set(await remote.list())
+    } catch (error: unknown) {
+      warnings.push(
+        `Could not list object storage; assuming uploaded copies are intact: ${getErrorMessage(error)}`
+      )
     }
   }
 
@@ -252,11 +263,16 @@ export async function runGallerySync(
     }
 
     // A photo may be skipped only when the local derivatives are current AND, if
-    // object storage is in use, its copy is current too. Without the remote
-    // check, a photo whose upload failed once would be skipped forever: the local
-    // state never changes again, so the failure could never self-heal.
+    // object storage is in use, its copy is both current and actually present.
+    // Without the revision check, a photo whose upload failed once would be
+    // skipped forever: the local state never changes again, so the failure could
+    // never self-heal. Without the presence check, an object removed from the
+    // bucket would stay missing for the same reason.
     const remoteUpToDate =
-      !remote || previousPhoto?.remote?.revision === revision
+      !remote ||
+      (previousPhoto?.remote?.revision === revision &&
+        (remoteKeys === undefined ||
+          remoteDerivativesPresent(previousPhoto, remoteKeys)))
 
     if (
       previousPhoto &&
@@ -331,6 +347,27 @@ export async function runGallerySync(
 
   await writeGalleryIndex(paths.index, index)
   await cleanUnreferencedGeneratedFiles(paths.generated, index.photos, errors)
+
+  // Reconcile object storage against the index that was just written.
+  //
+  // This is what actually keeps the bucket in step with the gallery. The old
+  // approach deleted only the derivatives of photos the *previous* index still
+  // remembered, which missed two whole classes of leftover:
+  //
+  //   * a superseded revision — when a photo is re-edited its filename changes,
+  //     so the previous revision's objects are referenced by nothing and were
+  //     never removed, and
+  //   * a removal that failed once — the index has already dropped the photo, so
+  //     no later sync would ever look at it again.
+  //
+  // Both show up to the user as "I deleted it and it came back / never went
+  // away". Comparing against the bucket itself fixes both, and is idempotent:
+  // it deletes exactly the objects that are not referenced, whoever created
+  // them. Local files are reconciled against the same reference set by
+  // `cleanUnreferencedGeneratedFiles` above, so the two now agree.
+  if (remote) {
+    await reconcileRemoteDerivatives(remote, index.photos, remoteKeys, warnings)
+  }
 
   reportProgress?.({
     phase: 'done',
@@ -498,24 +535,80 @@ async function publishToRemote(
 }
 
 /**
- * Delete a retired photo's derivatives from object storage.
+ * Whether both of a photo's derivatives are present in the bucket.
  *
- * Failures become warnings rather than errors: the index has already dropped the
- * photo, so a leftover object is an orphan to clean up later, not a reason to
- * fail the sync. A missing object is not an error either (idempotent retry).
+ * Returns false when the previous record has no remote state at all, which is
+ * what makes a photo whose upload never succeeded retry on the next run.
  */
-async function removeRemoteDerivatives(
+function remoteDerivativesPresent(
+  photo: PhotoIndexItem | undefined,
+  remoteKeys: Set<string>
+): boolean {
+  if (!photo?.remote) {
+    return false
+  }
+
+  return (
+    remoteKeys.has(photo.storage.thumbnail) &&
+    remoteKeys.has(photo.storage.preview)
+  )
+}
+
+/**
+ * Delete every object in the bucket that the index no longer references.
+ *
+ * Only keys matching the generated-derivative filename pattern are considered,
+ * so a bucket shared with other content (or holding the operator's own files)
+ * is never touched. Within that pattern, anything unreferenced is ours by
+ * construction, which is why this can safely clean up objects the current index
+ * has no record of.
+ *
+ * `storedKeys` is the listing taken at the start of the run. Using it rather
+ * than listing again is safe in one direction only, which is the direction that
+ * matters: objects uploaded during this run are referenced by the index we just
+ * wrote, so they can never appear as orphans. The set can therefore only
+ * under-report, never over-delete.
+ *
+ * Failures become warnings rather than errors: an orphan is a cleanup problem,
+ * not a reason to fail the run. The run is idempotent, so the next sync retries
+ * whatever did not go through — the retry the previous implementation never
+ * performed.
+ */
+async function reconcileRemoteDerivatives(
   remote: RemotePublisher,
-  photo: PhotoIndexItem,
-  filename: string,
+  photos: PhotoIndexItem[],
+  storedKeys: Set<string> | undefined,
   warnings: string[]
 ): Promise<void> {
-  try {
-    await remote.remove(photo.storage.thumbnail)
-    await remote.remove(photo.storage.preview)
-  } catch (error: unknown) {
+  if (!storedKeys) {
+    // The earlier listing failed; that was already warned about. Deleting on an
+    // unknown bucket state is exactly what must not happen.
+    return
+  }
+
+  const referenced = new Set(
+    photos
+      .flatMap(photo => [photo.storage.thumbnail, photo.storage.preview])
+      .filter(key => GENERATED_IMAGE_FILENAME_PATTERN.test(key))
+  )
+
+  const orphans = [...storedKeys]
+    .filter(key => GENERATED_IMAGE_FILENAME_PATTERN.test(key))
+    .filter(key => !referenced.has(key))
+
+  for (const key of orphans) {
+    try {
+      await remote.remove(key)
+    } catch (error: unknown) {
+      warnings.push(
+        `Could not remove unreferenced object ${key}: ${getErrorMessage(error)}`
+      )
+    }
+  }
+
+  if (orphans.length > 0) {
     warnings.push(
-      `Could not remove object storage copies of ${filename}: ${getErrorMessage(error)}`
+      `Removed ${orphans.length} unreferenced object(s) from object storage.`
     )
   }
 }

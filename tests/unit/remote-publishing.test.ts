@@ -46,10 +46,13 @@ async function createGalleryWorkspace(): Promise<GalleryPaths> {
 
 /** In-memory publisher that records calls, for asserting pipeline behaviour. */
 function createFakePublisher(
-  options: { failUpload?: boolean } = {}
+  options: { failUpload?: boolean; failRemove?: boolean } = {}
 ): RemotePublisher & { uploads: string[]; removals: string[] } {
   const uploads: string[] = []
   const removals: string[] = []
+  // Mirrors the bucket, so `list` reports what is actually stored rather than
+  // what the caller happens to have remembered.
+  const stored = new Set<string>()
 
   return {
     uploads,
@@ -59,9 +62,17 @@ function createFakePublisher(
         throw new Error('simulated upload failure')
       }
       uploads.push(fileName)
+      stored.add(fileName)
     },
     async remove(fileName) {
+      if (options.failRemove) {
+        throw new Error('simulated delete failure')
+      }
       removals.push(fileName)
+      stored.delete(fileName)
+    },
+    async list() {
+      return [...stored]
     }
   }
 }
@@ -158,14 +169,39 @@ describe('remote publishing during sync', () => {
 
   it('does not re-upload an unchanged photo', async () => {
     const paths = await createGalleryWorkspace()
+    // One publisher stands in for the bucket, which persists across syncs.
+    const remote = createFakePublisher()
 
-    await runGallerySync({ paths, remote: createFakePublisher() })
+    await runGallerySync({ paths, remote })
+    const uploadsAfterFirst = remote.uploads.length
 
-    const second = createFakePublisher()
-    const result = await runGallerySync({ paths, remote: second })
+    const result = await runGallerySync({ paths, remote })
 
     expect(result.summary.skipped).toBe(1)
-    expect(second.uploads).toEqual([])
+    expect(remote.uploads).toHaveLength(uploadsAfterFirst)
+  })
+
+  it('re-uploads an object that disappeared from the bucket', async () => {
+    // A delete in the provider dashboard, a lifecycle rule, or a restored
+    // bucket leaves the index claiming the upload happened. Trusting the index
+    // alone left the CDN serving broken images forever.
+    const paths = await createGalleryWorkspace()
+    const remote = createFakePublisher()
+
+    await runGallerySync({ paths, remote })
+    const uploadsAfterFirst = remote.uploads.length
+
+    // Wipe the bucket, as an external delete would.
+    for (const key of await remote.list()) {
+      await remote.remove(key)
+    }
+    remote.uploads.length = 0
+    remote.removals.length = 0
+
+    const result = await runGallerySync({ paths, remote })
+
+    expect(result.summary.skipped).toBe(0)
+    expect(remote.uploads).toHaveLength(uploadsAfterFirst)
   })
 
   it('retries a photo whose upload previously failed', async () => {
@@ -188,11 +224,14 @@ describe('remote publishing during sync', () => {
 
   it('removes derivatives when a photo is deleted from originals', async () => {
     const paths = await createGalleryWorkspace()
-    await runGallerySync({ paths, remote: createFakePublisher() })
+    // One publisher for both runs: it stands in for the bucket, which persists
+    // across syncs. A fresh instance would model an empty bucket and hide the
+    // very leftovers reconciliation exists to remove.
+    const remote = createFakePublisher()
+    await runGallerySync({ paths, remote })
 
     await rm(join(paths.originals, 'x.jpg'))
 
-    const remote = createFakePublisher()
     const result = await runGallerySync({ paths, remote })
 
     expect(result.summary.deleted).toBe(1)
@@ -204,16 +243,19 @@ describe('remote publishing during sync', () => {
 
   it('warns instead of failing when removal fails', async () => {
     const paths = await createGalleryWorkspace()
-    await runGallerySync({ paths, remote: createFakePublisher() })
+    const remote = createFakePublisher()
+    await runGallerySync({ paths, remote })
 
     await rm(join(paths.originals, 'x.jpg'))
 
-    const failing: RemotePublisher = {
-      async upload() {},
-      async remove() {
-        throw new Error('simulated delete failure')
-      }
+    const failing = createFakePublisher({ failRemove: true })
+
+    // Seed the failing publisher with the objects that are already in the
+    // bucket, so reconciliation has something it must try to remove.
+    for (const key of await remote.list()) {
+      await failing.upload(key, '')
     }
+    failing.uploads.length = 0
 
     const result = await runGallerySync({ paths, remote: failing })
 
