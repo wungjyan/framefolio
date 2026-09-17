@@ -167,7 +167,7 @@ const errorCount = computed(
 
     <p
       v-if="doneCount > 0"
-      class="admin-notice admin-notice--warning"
+      class="admin-notice admin-notice--attention"
       role="status"
     >
       已上传

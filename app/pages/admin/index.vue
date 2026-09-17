@@ -48,7 +48,15 @@ const loading = ref(false)
 const syncing = ref(false)
 const deleting = ref(false)
 const message = ref('')
-const messageTone = ref<'muted' | 'warning'>('muted')
+/**
+ * Notice tone.
+ *
+ * `attention` marks the "this has not taken effect yet" notices, which are the
+ * most important thing on the page and were previously indistinguishable from
+ * routine status text. It is deliberately separate from `warning`, which is
+ * reserved for things that actually went wrong.
+ */
+const messageTone = ref<'muted' | 'warning' | 'attention'>('muted')
 
 const deleteTarget = ref<AdminPhoto>()
 const confirmOpen = computed({
@@ -364,9 +372,10 @@ async function confirmDelete(): Promise<void> {
     await api.deletePhoto(target.filename)
     deleteTarget.value = undefined
     // The photo is still published: say so, so the delay is not forgotten.
+    // Attention, not warning: nothing is wrong, the change just is not live yet.
     setMessage(
       `已将「${target.filename}」移入回收站。它仍显示在网站上，点击「立即同步」后才会移除。`,
-      'warning'
+      'attention'
     )
     await loadPhotos()
   } catch (error: unknown) {
@@ -379,12 +388,15 @@ async function confirmDelete(): Promise<void> {
 async function onUploaded(): Promise<void> {
   setMessage(
     '照片已上传，但尚未显示在网站上。点击「立即同步」后即可展示。',
-    'warning'
+    'attention'
   )
   await loadPhotos()
 }
 
-function setMessage(text: string, tone: 'muted' | 'warning'): void {
+function setMessage(
+  text: string,
+  tone: 'muted' | 'warning' | 'attention'
+): void {
   message.value = text
   messageTone.value = tone
 }
@@ -441,6 +453,7 @@ FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令</code></pre>
       <header class="admin-header">
         <h1 class="admin-header__title">FRAMEFOLIO 管理</h1>
         <div class="admin-header__actions">
+          <AdminThemeToggle />
           <a class="admin-link" href="/">查看网站</a>
           <button class="admin-link" type="button" @click="onLogout">
             退出登录
@@ -451,11 +464,7 @@ FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令</code></pre>
       <p
         v-if="message"
         class="admin-notice"
-        :class="
-          messageTone === 'warning'
-            ? 'admin-notice--warning'
-            : 'admin-notice--muted'
-        "
+        :class="`admin-notice--${messageTone}`"
         role="status"
         aria-live="polite"
       >
@@ -482,7 +491,7 @@ FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令</code></pre>
           :busy="loading"
           @sync="onSync"
         />
-        <p class="admin-notice admin-notice--muted">
+        <p class="admin-notice admin-notice--attention">
           上传和删除都不会立即生效。网站上的内容只在你按下「立即同步」后才会改变。
         </p>
       </section>

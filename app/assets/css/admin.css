@@ -176,6 +176,38 @@
   color: var(--gallery-ink);
 }
 
+/* Theme toggle */
+
+.admin-theme-toggle svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.5;
+}
+
+/* Only one icon is shown at a time: the one naming the theme currently in
+   effect. The rules key off `html[data-theme]`, which the inline boot script
+   sets before first paint, so the correct icon is there immediately and never
+   swaps visibly.
+
+   Both rules live in admin.css, not main.css: the public gallery must keep its
+   own stylesheet byte-for-byte unchanged. */
+.admin-theme-toggle__icon {
+  display: none;
+}
+
+html[data-theme='light'] .admin-theme-toggle__icon--light,
+html:not([data-theme]) .admin-theme-toggle__icon--light {
+  display: block;
+}
+
+html[data-theme='dark'] .admin-theme-toggle__icon--dark {
+  display: block;
+}
+
 /* "Admin not configured" notice */
 
 .admin-disabled {
@@ -226,6 +258,46 @@
 
 .admin-notice--warning {
   border-color: var(--gallery-ink);
+}
+
+/*
+ * "Not live yet" notices.
+ *
+ * A whole page of black and grey made the most important instruction on the
+ * admin screen — that uploads and deletes do nothing until you press 立即同步 —
+ * read as decoration and get skipped. This is the one place in the admin area
+ * that earns an accent colour.
+ *
+ * The amber is defined here rather than in main.css on purpose: admin.css is
+ * loaded only by /admin, so the public gallery's palette stays exactly as it
+ * was.
+ *
+ * Only `html[data-theme]` is used, matching main.css. An inline script always
+ * sets that attribute before first paint, so a `prefers-color-scheme` fallback
+ * would not be reached in practice — and with JS disabled it would wrongly
+ * paint dark amber onto the light page that would be rendered.
+ */
+.admin-notice--attention {
+  --admin-attention-ink: #92400e;
+  /* #f59e0b is the obvious amber but only reaches 2.07:1 against the tinted
+     background, below the 3:1 that non-text contrast requires. #d97706 is the
+     lightest shade that passes (3.07:1) while still reading as amber. */
+  --admin-attention-line: #d97706;
+  --admin-attention-fill: #fffbeb;
+
+  color: var(--admin-attention-ink);
+  background: var(--admin-attention-fill);
+  border-color: var(--admin-attention-line);
+}
+
+html[data-theme='dark'] .admin-notice--attention {
+  --admin-attention-ink: #fcd34d;
+  --admin-attention-line: #b45309;
+  --admin-attention-fill: #2a1c05;
+}
+
+.admin-notice--attention strong {
+  color: inherit;
 }
 
 /* Pending banner */

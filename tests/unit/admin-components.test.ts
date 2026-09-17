@@ -1,10 +1,13 @@
 // @vitest-environment happy-dom
+import { readFile } from 'node:fs/promises'
+
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AdminConfirmDialog from '../../app/components/admin/AdminConfirmDialog.vue'
 import AdminLogin from '../../app/components/admin/AdminLogin.vue'
 import AdminStoragePanel from '../../app/components/admin/AdminStoragePanel.vue'
+import AdminThemeToggle from '../../app/components/admin/AdminThemeToggle.vue'
 import AdminUploader from '../../app/components/admin/AdminUploader.vue'
 import AdminPhotoList from '../../app/components/admin/AdminPhotoList.vue'
 import type { AdminPhoto } from '../../shared/types/admin'
@@ -670,6 +673,183 @@ describe('AdminStoragePanel', () => {
     })
 
     expect(wrapper.text()).not.toContain('缓存')
+  })
+})
+
+/**
+ * The accent colour that marks "not live yet" notices.
+ *
+ * These guard the two ways this change could go wrong: leaking an accent into
+ * the public gallery's palette, and picking amber that is unreadable on one of
+ * the two themes.
+ */
+describe('attention notice styling', () => {
+  /** WCAG relative luminance. */
+  function luminance(hex: string): number {
+    const channels = [1, 3, 5]
+      .map(index => Number.parseInt(hex.slice(index, index + 2), 16) / 255)
+      .map(value =>
+        value <= 0.03928
+          ? value / 12.92
+          : Math.pow((value + 0.055) / 1.055, 2.4)
+      )
+
+    return (
+      0.2126 * (channels[0] as number) +
+      0.7152 * (channels[1] as number) +
+      0.0722 * (channels[2] as number)
+    )
+  }
+
+  function contrast(a: string, b: string): number {
+    const [lighter, darker] = [luminance(a), luminance(b)].sort(
+      (x, y) => y - x
+    ) as [number, number]
+
+    return (lighter + 0.05) / (darker + 0.05)
+  }
+
+  /** Pull a custom property out of a declaration block. */
+  function customProperty(block: string, name: string): string {
+    return (
+      new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, 'i').exec(block)?.[1] ?? ''
+    )
+  }
+
+  it('only defines the accent in the admin stylesheet', async () => {
+    // admin.css is loaded exclusively by /admin. Defining the amber in main.css
+    // would tint the public gallery, which the refactor must not change.
+    const mainCss = await readFile('app/assets/css/main.css', 'utf8')
+    const adminCss = await readAdminCss()
+
+    expect(adminCss).toContain('.admin-notice--attention')
+    expect(mainCss).not.toContain('attention')
+    expect(mainCss).not.toContain('d97706')
+    expect(mainCss).not.toContain('fcd34d')
+  })
+
+  it('keeps the light-mode text above 4.5:1', async () => {
+    const block = cssRule(await readAdminCss(), '.admin-notice--attention')
+    const ink = customProperty(block, 'admin-attention-ink')
+    const fill = customProperty(block, 'admin-attention-fill')
+
+    expect(ink).not.toBe('')
+    expect(contrast(ink, fill)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('keeps the dark-mode text above 4.5:1', async () => {
+    const css = await readAdminCss()
+    const block =
+      /html\[data-theme='dark'\] \.admin-notice--attention \{([^}]*)\}/.exec(
+        css
+      )?.[1] ?? ''
+    const ink = customProperty(block, 'admin-attention-ink')
+    const fill = customProperty(block, 'admin-attention-fill')
+
+    expect(ink).not.toBe('')
+    expect(contrast(ink, fill)).toBeGreaterThanOrEqual(4.5)
+  })
+
+  it('keeps the border visible against the background (3:1)', async () => {
+    // The border is the element that makes the notice noticeable at a glance,
+    // so it must clear the 3:1 non-text threshold. Plain #f59e0b only reaches
+    // 2.07:1 here, which is why a darker shade is used.
+    const block = cssRule(await readAdminCss(), '.admin-notice--attention')
+    const line = customProperty(block, 'admin-attention-line')
+    const fill = customProperty(block, 'admin-attention-fill')
+
+    expect(contrast(line, fill)).toBeGreaterThanOrEqual(3)
+  })
+
+  it('marks the "not live yet" notices with the accent', async () => {
+    // Asserted against the source rather than by mounting: these components call
+    // Nuxt auto-imports that a bare Vitest run does not provide. What matters is
+    // that the notices telling the user "this is not live yet" carry the accent
+    // instead of the plain grey tone they had before.
+    const admin = await readFile('app/pages/admin/index.vue', 'utf8')
+    const uploader = await readFile(
+      'app/components/admin/AdminUploader.vue',
+      'utf8'
+    )
+
+    expect(admin).toContain('class="admin-notice admin-notice--attention"')
+    expect(uploader).toContain('admin-notice admin-notice--attention')
+  })
+
+  it('does not use the accent for genuine failures', async () => {
+    // `warning` stays reserved for things that actually went wrong, so the
+    // accent keeps meaning "nothing is broken, it just is not live yet".
+    const admin = await readFile('app/pages/admin/index.vue', 'utf8')
+
+    expect(admin).toContain("'同步失败。'")
+    expect(admin).toMatch(/readMessage\(error, '同步失败。'\),\s*'warning'/)
+  })
+})
+
+describe('AdminThemeToggle', () => {
+  /**
+   * The component calls the Nuxt auto-imported `useTheme`, which a bare Vitest
+   * run has no transform for. Stub it and assert what the component does with
+   * the value; the composable itself is covered by theme.test.ts and the
+   * browser probe.
+   */
+  function stubUseTheme(theme: 'light' | 'dark') {
+    const toggleTheme = vi.fn()
+    ;(globalThis as Record<string, unknown>).useTheme = () => ({
+      theme: ref(theme),
+      toggleTheme
+    })
+    return { toggleTheme }
+  }
+
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>).useTheme
+  })
+
+  it('names the current theme and the one a click switches to', () => {
+    stubUseTheme('dark')
+
+    const button = mount(AdminThemeToggle).find('button')
+
+    expect(button.attributes('aria-label')).toContain('当前为深色主题')
+    expect(button.attributes('aria-label')).toContain('切换到浅色主题')
+  })
+
+  it('toggles the theme on click', async () => {
+    const { toggleTheme } = stubUseTheme('light')
+
+    const wrapper = mount(AdminThemeToggle)
+    await wrapper.find('button').trigger('click')
+
+    expect(toggleTheme).toHaveBeenCalledTimes(1)
+  })
+
+  it('is a real button, not a styled div', () => {
+    stubUseTheme('light')
+
+    expect(mount(AdminThemeToggle).find('button').attributes('type')).toBe(
+      'button'
+    )
+  })
+
+  it('ships both icons so no flash depends on JavaScript', () => {
+    stubUseTheme('light')
+
+    const html = mount(AdminThemeToggle).html()
+
+    // Which one is visible is decided by CSS keyed off html[data-theme], set by
+    // the boot script before first paint. The point here is that both icons are
+    // present in the markup, so the stylesheet alone can choose.
+    expect(html).toContain('admin-theme-toggle__icon--dark')
+    expect(html).toContain('admin-theme-toggle__icon--light')
+  })
+
+  it('keeps its icon rules out of the public gallery stylesheet', async () => {
+    const mainCss = await readFile('app/assets/css/main.css', 'utf8')
+    const adminCss = await readAdminCss()
+
+    expect(adminCss).toContain('.admin-theme-toggle__icon')
+    expect(mainCss).not.toContain('admin-theme-toggle')
   })
 })
 
