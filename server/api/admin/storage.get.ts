@@ -6,6 +6,7 @@ import {
 } from '../../../shared/node/storage-config'
 import { readStorageState } from '../../../shared/node/storage-state'
 import { inspectObjectStorage } from '../../../shared/node/remote-publisher'
+import { summarizeStorageIntegrity } from '../../../shared/node/storage-integrity'
 import type { AdminStorageStatusResponse } from '../../../shared/types/admin'
 import { getAdminContext } from '../../utils/admin-context'
 import { requireAdmin } from '../../utils/admin-guard'
@@ -40,16 +41,6 @@ export default defineEventHandler(async event => {
   // Tolerant: an unreadable index still lets the page render.
   const { index } = await readGalleryIndexTolerant(paths.index)
 
-  // Every derivative the index currently references.
-  const expectedKeys = index.photos.flatMap(photo => [
-    photo.storage.thumbnail,
-    photo.storage.preview
-  ])
-
-  const photosWithRemote = index.photos.filter(
-    photo => photo.remote?.revision === photo.source.revision
-  ).length
-
   const base: AdminStorageStatusResponse = {
     source: active.requested,
     effectiveSource: active.effective,
@@ -57,13 +48,15 @@ export default defineEventHandler(async event => {
     publicBaseUrl: storage.publicBaseUrl,
     prefix: storage.prefix,
     totalPhotos: index.photos.length,
-    photosWithRemote,
-    expectedObjects: expectedKeys.length
+    photosWithRemote: 0,
+    expectedObjects: index.photos.length * 2
   }
 
   if (!objectConfig) {
     // Not configured: report local-only rather than erroring, because the admin
-    // page must still render for a local deployment.
+    // page must still render for a local deployment. Nothing can be in a bucket
+    // that does not exist, so reporting zero available photos is the honest
+    // answer rather than echoing the index's claim that it uploaded them.
     return {
       ...base,
       connected: false,
@@ -72,19 +65,31 @@ export default defineEventHandler(async event => {
   }
 
   const report = await inspectObjectStorage(objectConfig)
-  const storedKeys = new Set(report.objects.map(object => object.key))
-  const missing = expectedKeys.filter(key => !storedKeys.has(key))
-  const expectedSet = new Set(expectedKeys)
-  const orphaned = report.objects
-    .map(object => object.key)
-    .filter(key => !expectedSet.has(key))
+
+  if (!report.connected) {
+    // The listing failed, so nothing about the bucket's contents is known. The
+    // counts are omitted rather than reported as zero, because "0 available,
+    // 46 missing" would be a fresh false claim of exactly the kind this
+    // endpoint already suffered from. The UI shows the connection error.
+    return {
+      ...base,
+      connected: false,
+      ...(report.message ? { message: report.message } : {})
+    } satisfies AdminStorageStatusResponse
+  }
+
+  // One call produces every count, from one source of truth (the bucket). This
+  // is what stops the panel contradicting itself: previously "uploaded" came
+  // from the index's own record while "completeness" came from a real listing,
+  // so an emptied bucket still read "uploaded 23 / 23 ... completeness 0%".
+  const integrity = summarizeStorageIntegrity({
+    photos: index.photos,
+    storedKeys: report.objects.map(object => object.key)
+  })
 
   return {
     ...base,
-    connected: report.connected,
-    ...(report.message ? { message: report.message } : {}),
-    storedObjects: report.objects.length,
-    missingObjects: missing.length,
-    orphanedObjects: orphaned.length
+    ...integrity,
+    connected: true
   } satisfies AdminStorageStatusResponse
 })

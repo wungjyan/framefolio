@@ -167,7 +167,13 @@ export interface AdminStorageStatusResponse {
   prefix?: string
   /** Photos in the published index. */
   totalPhotos: number
-  /** Photos whose current revision is recorded as uploaded. */
+  /**
+   * Photos usable from object storage: both derivatives are present in the
+   * bucket, as verified by a listing.
+   *
+   * When the bucket cannot be listed this falls back to the index's record of
+   * what was uploaded, which is a claim rather than an observation.
+   */
   photosWithRemote: number
   /** Derivatives the index references (2 per photo). */
   expectedObjects: number
@@ -177,4 +183,12 @@ export interface AdminStorageStatusResponse {
   missingObjects?: number
   /** Objects in the bucket that no photo references. */
   orphanedObjects?: number
+  /**
+   * Photos the index publishes to object storage whose files are gone.
+   *
+   * These still render from CDN cache until it expires, then break with no
+   * local fallback. A photo whose upload never succeeded is not counted: its
+   * URLs already fall back to `/media`.
+   */
+  photosPublishedButMissing?: number
 }

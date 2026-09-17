@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AdminConfirmDialog from '../../app/components/admin/AdminConfirmDialog.vue'
 import AdminLogin from '../../app/components/admin/AdminLogin.vue'
+import AdminStoragePanel from '../../app/components/admin/AdminStoragePanel.vue'
 import AdminUploader from '../../app/components/admin/AdminUploader.vue'
 import AdminPhotoList from '../../app/components/admin/AdminPhotoList.vue'
 import type { AdminPhoto } from '../../shared/types/admin'
@@ -511,6 +512,164 @@ describe('AdminPhotoList', () => {
     })
 
     expect(wrapper.text()).toContain('—')
+  })
+})
+
+/**
+ * The storage panel.
+ *
+ * The R2 branch gained real integrity numbers, so these tests pin both halves:
+ * that the local branch is left alone, and that the R2 branch never renders a
+ * count it cannot substantiate.
+ */
+describe('AdminStoragePanel', () => {
+  const baseStatus = {
+    source: 'r2' as const,
+    effectiveSource: 'r2' as const,
+    configured: true,
+    connected: true,
+    totalPhotos: 23,
+    photosWithRemote: 23,
+    expectedObjects: 46
+  }
+
+  it('says nothing about R2 counts when the local source is selected', () => {
+    const wrapper = mount(AdminStoragePanel, {
+      props: {
+        source: { source: 'local', effectiveSource: 'local', configured: true },
+        // A connected bucket is reported, but must stay out of the local copy.
+        status: {
+          ...baseStatus,
+          source: 'local',
+          effectiveSource: 'local',
+          missingObjects: 46
+        },
+        busy: false
+      }
+    })
+
+    const text = wrapper.text()
+    expect(text).toContain('当前使用本地存储')
+    expect(text).not.toContain('R2 中可用')
+    expect(text).not.toContain('完整度')
+    expect(text).not.toContain('缺失')
+  })
+
+  it('reports an emptied bucket as zero available, not as fully uploaded', () => {
+    // The regression: the index still records the upload, but the bucket is
+    // empty, so the panel must not claim the photos are there.
+    const wrapper = mount(AdminStoragePanel, {
+      props: {
+        source: { source: 'r2', effectiveSource: 'r2', configured: true },
+        status: {
+          ...baseStatus,
+          photosWithRemote: 0,
+          missingObjects: 46,
+          storedObjects: 0
+        },
+        busy: false
+      }
+    })
+
+    const text = wrapper.text()
+    expect(text).toContain('R2 中可用 0 / 23 张')
+    expect(text).toContain('完整度 0%')
+    expect(text).toContain('点「立即同步」会补传')
+    // The contradiction that motivated this work.
+    expect(text).not.toContain('已上传 23 / 23')
+  })
+
+  it('reports a fully published bucket as 100%', () => {
+    const wrapper = mount(AdminStoragePanel, {
+      props: {
+        source: { source: 'r2', effectiveSource: 'r2', configured: true },
+        status: { ...baseStatus, missingObjects: 0, storedObjects: 46 },
+        busy: false
+      }
+    })
+
+    expect(wrapper.text()).toContain('R2 中可用 23 / 23 张')
+    expect(wrapper.text()).toContain('完整度 100%')
+  })
+
+  it('omits the numbers when the bucket could not be listed', () => {
+    // Defaulting the missing count to zero here would render "100% complete"
+    // for a bucket that was never inspected.
+    const wrapper = mount(AdminStoragePanel, {
+      props: {
+        source: { source: 'r2', effectiveSource: 'r2', configured: true },
+        status: { ...baseStatus, connected: false, message: 'timeout' },
+        busy: false
+      }
+    })
+
+    const text = wrapper.text()
+    expect(text).toContain('无法读取对象存储')
+    expect(text).not.toContain('完整度')
+  })
+
+  it('explains that cached images may still be served', () => {
+    // The confusing state: the site looks fine because the CDN still has a
+    // cached copy, even though the bucket no longer holds the object.
+    const wrapper = mount(AdminStoragePanel, {
+      props: {
+        source: { source: 'r2', effectiveSource: 'r2', configured: true },
+        status: {
+          ...baseStatus,
+          photosWithRemote: 0,
+          missingObjects: 46,
+          storedObjects: 0,
+          photosPublishedButMissing: 23
+        },
+        busy: false
+      }
+    })
+
+    expect(wrapper.text()).toContain('缓存')
+  })
+
+  it('does not claim a cache problem when uploads simply never succeeded', () => {
+    // These photos were never on the CDN, so their URLs fall back to /media and
+    // they render from local files. "It's only cache" would be false.
+    const wrapper = mount(AdminStoragePanel, {
+      props: {
+        source: { source: 'r2', effectiveSource: 'r2', configured: true },
+        status: {
+          ...baseStatus,
+          photosWithRemote: 0,
+          missingObjects: 46,
+          storedObjects: 0,
+          photosPublishedButMissing: 0
+        },
+        busy: false
+      }
+    })
+
+    const text = wrapper.text()
+    // The counts are still shown truthfully...
+    expect(text).toContain('完整度 0%')
+    expect(text).toContain('会补传')
+    // ...but not the cache explanation.
+    expect(text).not.toContain('缓存')
+  })
+
+  it('does not warn about caching in local mode', () => {
+    const wrapper = mount(AdminStoragePanel, {
+      props: {
+        source: { source: 'local', effectiveSource: 'local', configured: true },
+        status: {
+          ...baseStatus,
+          source: 'local',
+          effectiveSource: 'local',
+          photosWithRemote: 0,
+          missingObjects: 46,
+          photosPublishedButMissing: 23
+        },
+        busy: false
+      }
+    })
+
+    expect(wrapper.text()).not.toContain('缓存')
   })
 })
 
