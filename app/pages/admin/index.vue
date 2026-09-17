@@ -32,12 +32,13 @@ const { authenticated, checking, disabled, refresh, login, logout } =
 
 const loginForm = ref<{ reset: () => void; setError: (m: string) => void }>()
 const photos = ref<AdminPhoto[]>([])
-const pending = ref<AdminPhotosResponse['pending']>({
-  added: 0,
-  changed: 0,
-  pendingDelete: 0,
-  total: 0
-})
+/**
+ * Pending change counts, or undefined until the first load answers.
+ *
+ * Seeding this with zeros made the page announce "no pending changes" before it
+ * had read anything, so a slow load looked like a confident answer.
+ */
+const pending = ref<AdminPhotosResponse['pending'] | undefined>(undefined)
 const indexIncompatible = ref(false)
 const syncStatus = ref<AdminSyncStatusResponse>()
 const storageSource = ref<AdminStorageSourceResponse>()
@@ -477,7 +478,7 @@ FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令</code></pre>
         <h2 id="admin-sync-heading" class="admin-section__title">同步</h2>
         <AdminSyncPanel
           :status="syncStatus"
-          :pending-total="pending.total"
+          :pending-total="pending?.total"
           :busy="loading"
           @sync="onSync"
         />

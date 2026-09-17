@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AdminSyncStatusResponse } from '../../../shared/types/admin'
-import { formatDateTime } from '../../utils/admin-format'
+import { formatDateTime, syncProgressText } from '../../utils/admin-format'
 
 /**
  * Sync panel: the one place that publishes changes.
@@ -11,7 +11,14 @@ import { formatDateTime } from '../../utils/admin-format'
  */
 const props = defineProps<{
   status: AdminSyncStatusResponse | undefined
-  pendingTotal: number
+  /**
+   * Pending change count, or `undefined` while it is still unknown.
+   *
+   * Optional on purpose: before the first load there is no answer, and claiming
+   * "up to date" then is a guess. Making "unknown" representable forces the
+   * template to handle it instead of defaulting to the reassuring message.
+   */
+  pendingTotal: number | undefined
   busy: boolean
 }>()
 
@@ -20,6 +27,42 @@ const emit = defineEmits<{
 }>()
 
 const running = computed(() => props.status?.running === true)
+
+/**
+ * The line beside the button, or undefined when nothing should be shown.
+ *
+ * Three conditions, each fixing a way a single `pendingTotal === 0` check
+ * misled:
+ *
+ *   * the count must be known — otherwise a fresh page load announced "up to
+ *     date" before it had read anything;
+ *   * a run must not be in flight — "up to date" beside a running progress bar
+ *     is a direct contradiction, and the count itself is stale mid-run (it is
+ *     whatever it was before the run started), so the live progress bar is the
+ *     only thing worth showing;
+ *   * only a genuine zero earns the "nothing to do" wording.
+ *
+ * The wording is about the local change set, because that is all this checks: it
+ * compares `originals/` against the index and never contacts object storage, so
+ * it cannot speak for what the public site is actually serving.
+ */
+const pendingLabel = computed<string | undefined>(() => {
+  if (running.value) {
+    return undefined
+  }
+
+  if (props.pendingTotal === undefined) {
+    return '正在读取本地变更…'
+  }
+
+  return props.pendingTotal > 0
+    ? `待同步 ${props.pendingTotal} 项`
+    : '本地无待同步变更'
+})
+
+const pendingIsClear = computed(
+  () => !running.value && props.pendingTotal === 0
+)
 
 const progressPercent = computed(() => {
   const progress = props.status?.current?.progress
@@ -52,6 +95,16 @@ const summaryText = computed(() => {
 })
 
 const failed = computed(() => (lastSummary.value?.failed ?? 0) > 0)
+
+const progress = computed(() => props.status?.current?.progress)
+
+const progressText = computed(() => {
+  const current = progress.value
+
+  return current
+    ? syncProgressText(current.phase, current.completed, current.total)
+    : undefined
+})
 </script>
 
 <template>
@@ -66,11 +119,16 @@ const failed = computed(() => (lastSummary.value?.failed ?? 0) > 0)
         {{ running ? '同步中…' : '立即同步' }}
       </button>
 
-      <span v-if="pendingTotal > 0" class="admin-sync__pending">
-        待同步 {{ pendingTotal }} 项
-      </span>
-      <span v-else class="admin-sync__pending admin-sync__pending--clear">
-        网站已是最新
+      <!--
+        Nothing is shown while a run is in flight: the outcome is not known yet,
+        and the progress bar below already reports what is happening.
+      -->
+      <span
+        v-if="pendingLabel"
+        class="admin-sync__pending"
+        :class="{ 'admin-sync__pending--clear': pendingIsClear }"
+      >
+        {{ pendingLabel }}
       </span>
     </div>
 
@@ -82,11 +140,10 @@ const failed = computed(() => (lastSummary.value?.failed ?? 0) > 0)
         />
       </div>
       <p class="admin-sync__detail" role="status">
-        {{ status?.current?.progress?.phase ?? 'running' }}
-        <template v-if="status?.current?.progress">
-          （{{ status.current.progress.completed }} /
-          {{ status.current.progress.total }}）
+        <template v-if="progress">
+          {{ progressText }}
         </template>
+        <template v-else>同步中</template>
       </p>
     </div>
 

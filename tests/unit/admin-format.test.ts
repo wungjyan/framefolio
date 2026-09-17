@@ -4,7 +4,9 @@ import {
   formatBytes,
   formatDateTime,
   formatRelative,
-  photoStateLabel
+  photoStateLabel,
+  syncPhaseLabel,
+  syncProgressText
 } from '../../app/utils/admin-format'
 
 describe('formatBytes', () => {
@@ -77,5 +79,44 @@ describe('photoStateLabel', () => {
 
   it('treats an unknown state as published', () => {
     expect(photoStateLabel('something-else')).toBe('已发布')
+  })
+})
+
+describe('syncPhaseLabel', () => {
+  it('translates every phase the pipeline emits', () => {
+    // The raw values are internal identifiers; showing them put English words
+    // like "finalising" in an otherwise Chinese panel.
+    expect(syncPhaseLabel('scanning')).toBe('扫描原图')
+    expect(syncPhaseLabel('processing')).toBe('处理中')
+    expect(syncPhaseLabel('finalising')).toBe('收尾中')
+    expect(syncPhaseLabel('done')).toBe('已完成')
+  })
+
+  it('has no leftover English for an unknown or missing phase', () => {
+    expect(syncPhaseLabel(undefined)).toBe('同步中')
+    expect(syncPhaseLabel('something-new')).toBe('同步中')
+  })
+})
+
+describe('syncProgressText', () => {
+  it('says what the counter counts', () => {
+    // Deleting 2 of 16 photos still advances to 16 / 16, because every file in
+    // originals/ is checked. Without the label that reads as a bug.
+    expect(syncProgressText('processing', 12, 16)).toBe(
+      '处理中 · 已检查原图 12 / 16'
+    )
+  })
+
+  it('labels the finalising phase', () => {
+    expect(syncProgressText('finalising', 16, 16)).toBe(
+      '收尾中 · 已检查原图 16 / 16'
+    )
+  })
+
+  it('never shows a bare fraction', () => {
+    const text = syncProgressText('processing', 0, 16)
+
+    expect(text).toContain('已检查原图')
+    expect(text).not.toMatch(/^\d+\s*\/\s*\d+$/)
   })
 })

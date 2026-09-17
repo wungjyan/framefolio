@@ -88,3 +88,40 @@ export function photoStateLabel(state: string): string {
       return '已发布'
   }
 }
+
+/**
+ * Chinese label for a sync phase.
+ *
+ * The raw values are internal identifiers, so displaying them put English words
+ * like "finalising" in an otherwise Chinese panel.
+ */
+export function syncPhaseLabel(phase: string | undefined): string {
+  switch (phase) {
+    case 'scanning':
+      return '扫描原图'
+    case 'processing':
+      return '处理中'
+    case 'finalising':
+      return '收尾中'
+    case 'done':
+      return '已完成'
+    default:
+      return '同步中'
+  }
+}
+
+/**
+ * The progress line under the bar, e.g. `处理中 · 已检查原图 12 / 16`.
+ *
+ * The counter is spelled out on purpose. It counts every file in `originals/`,
+ * not the number of pending changes, so deleting two photos out of sixteen still
+ * advances to 16 / 16 — which reads as a bug unless the line says what is being
+ * counted.
+ */
+export function syncProgressText(
+  phase: string | undefined,
+  completed: number,
+  total: number
+): string {
+  return `${syncPhaseLabel(phase)} · 已检查原图 ${completed} / ${total}`
+}
