@@ -31,6 +31,16 @@ const api = useAdminApi()
 const { authenticated, checking, disabled, refresh, login, logout } =
   useAdminSession()
 
+/**
+ * Version of the image this page was built from.
+ *
+ * Injected at build time from `version.txt`, so a running container always
+ * reports the version it was actually built from rather than whatever the
+ * repository says now. Useful for answering "is the NAS running the latest
+ * release?" without shelling into it.
+ */
+const { appVersion } = useRuntimeConfig().public
+
 const loginForm = ref<{ reset: () => void; setError: (m: string) => void }>()
 const photos = ref<AdminPhoto[]>([])
 /**
@@ -449,6 +459,7 @@ FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令</code></pre>
       <header class="admin-header">
         <h1 class="admin-header__title">FRAMEFOLIO 管理</h1>
         <div class="admin-header__actions">
+          <AdminVersionBadge :version="appVersion" />
           <AdminThemeToggle />
           <a class="admin-link" href="/">查看网站</a>
           <button class="admin-link" type="button" @click="onLogout">

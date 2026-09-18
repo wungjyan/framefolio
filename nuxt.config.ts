@@ -1,3 +1,4 @@
+import { readAppVersion } from './shared/node/app-version'
 import { resolveGalleryPaths } from './shared/node/gallery-paths'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
@@ -23,7 +24,13 @@ export default defineNuxtConfig({
     }
   },
   runtimeConfig: {
-    galleryDataDir: resolveGalleryPaths().data
+    galleryDataDir: resolveGalleryPaths().data,
+    public: {
+      // Read while the bundle is built, so the running image reports the
+      // version it was built from. `public` because the admin page is a
+      // client-rendered SPA and needs the value in the browser.
+      appVersion: readAppVersion()
+    }
   },
   routeRules: {
     // The admin area is a client-rendered SPA: it has no SEO requirement and

@@ -9,6 +9,7 @@ import AdminLogin from '../../app/components/admin/AdminLogin.vue'
 import AdminStoragePanel from '../../app/components/admin/AdminStoragePanel.vue'
 import AdminThemeToggle from '../../app/components/admin/AdminThemeToggle.vue'
 import AdminUploader from '../../app/components/admin/AdminUploader.vue'
+import AdminVersionBadge from '../../app/components/admin/AdminVersionBadge.vue'
 import AdminPhotoList from '../../app/components/admin/AdminPhotoList.vue'
 import type { AdminPhoto } from '../../shared/types/admin'
 
@@ -684,38 +685,6 @@ describe('AdminStoragePanel', () => {
  * the two themes.
  */
 describe('attention notice styling', () => {
-  /** WCAG relative luminance. */
-  function luminance(hex: string): number {
-    const channels = [1, 3, 5]
-      .map(index => Number.parseInt(hex.slice(index, index + 2), 16) / 255)
-      .map(value =>
-        value <= 0.03928
-          ? value / 12.92
-          : Math.pow((value + 0.055) / 1.055, 2.4)
-      )
-
-    return (
-      0.2126 * (channels[0] as number) +
-      0.7152 * (channels[1] as number) +
-      0.0722 * (channels[2] as number)
-    )
-  }
-
-  function contrast(a: string, b: string): number {
-    const [lighter, darker] = [luminance(a), luminance(b)].sort(
-      (x, y) => y - x
-    ) as [number, number]
-
-    return (lighter + 0.05) / (darker + 0.05)
-  }
-
-  /** Pull a custom property out of a declaration block. */
-  function customProperty(block: string, name: string): string {
-    return (
-      new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, 'i').exec(block)?.[1] ?? ''
-    )
-  }
-
   it('only defines the accent in the admin stylesheet', async () => {
     // admin.css is loaded exclusively by /admin. Defining the amber in main.css
     // would tint the public gallery, which the refactor must not change.
@@ -852,6 +821,89 @@ describe('AdminThemeToggle', () => {
     expect(mainCss).not.toContain('admin-theme-toggle')
   })
 })
+
+describe('AdminVersionBadge', () => {
+  it('shows the version it was given, prefixed with v', () => {
+    const wrapper = mount(AdminVersionBadge, { props: { version: '1.1.0' } })
+
+    expect(wrapper.text()).toBe('v1.1.0')
+  })
+
+  it('spells out in the tooltip that this is the running image', () => {
+    // The bare number is ambiguous — it could read as the gallery's version, or
+    // as the latest published release rather than the one deployed here.
+    const wrapper = mount(AdminVersionBadge, { props: { version: '1.1.0' } })
+
+    expect(wrapper.attributes('title')).toContain('当前运行的镜像版本')
+    expect(wrapper.attributes('title')).toContain('1.1.0')
+  })
+
+  it('is not a control', () => {
+    // It reports a fact; nothing happens when it is clicked. A <button> or a
+    // link here would promise an interaction that does not exist.
+    const wrapper = mount(AdminVersionBadge, { props: { version: '1.1.0' } })
+
+    expect(wrapper.find('button').exists()).toBe(false)
+    expect(wrapper.find('a').exists()).toBe(false)
+  })
+
+  it('is styled by the admin stylesheet, never the gallery one', async () => {
+    const mainCss = await readFile('app/assets/css/main.css', 'utf8')
+    const adminCss = await readAdminCss()
+
+    expect(adminCss).toContain('.admin-version')
+    expect(mainCss).not.toContain('admin-version')
+  })
+
+  it('meets WCAG AA against both canvases', async () => {
+    // Asserted against the declared colours, not against copies of them, so
+    // changing admin.css to something unreadable fails here. The light canvas
+    // is #ffffff and the dark one #0a0a0a, both from main.css.
+    //
+    // This is why the badge does not reuse `--gallery-muted`: that grey reaches
+    // only 2.96:1 on the light canvas, below the 4.5:1 WCAG AA asks of text.
+    const css = await readAdminCss()
+    const lightBlock = cssRule(css, '.admin-version')
+    const darkBlock =
+      /html\[data-theme='dark'\] \.admin-version \{([^}]*)\}/.exec(css)?.[1] ??
+      ''
+    const lightInk = customProperty(lightBlock, 'admin-version-ink')
+    const darkInk = customProperty(darkBlock, 'admin-version-ink')
+
+    expect(lightInk).not.toBe('')
+    expect(darkInk).not.toBe('')
+    expect(contrast(lightInk, '#ffffff')).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(darkInk, '#0a0a0a')).toBeGreaterThanOrEqual(4.5)
+  })
+})
+
+/** WCAG relative luminance. */
+function luminance(hex: string): number {
+  const channels = [1, 3, 5]
+    .map(index => Number.parseInt(hex.slice(index, index + 2), 16) / 255)
+    .map(value =>
+      value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+    )
+
+  return (
+    0.2126 * (channels[0] ?? 0) +
+    0.7152 * (channels[1] ?? 0) +
+    0.0722 * (channels[2] ?? 0)
+  )
+}
+
+function contrast(a: string, b: string): number {
+  const [lighter, darker] = [luminance(a), luminance(b)].sort(
+    (x, y) => y - x
+  ) as [number, number]
+
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+/** Pull a custom property out of a declaration block. */
+function customProperty(block: string, name: string): string {
+  return new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, 'i').exec(block)?.[1] ?? ''
+}
 
 /** Read the admin stylesheet under test. */
 async function readAdminCss(): Promise<string> {

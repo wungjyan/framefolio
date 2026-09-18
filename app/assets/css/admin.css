@@ -207,6 +207,34 @@ html[data-theme='dark'] .admin-theme-toggle__icon--dark {
   display: block;
 }
 
+/* Version badge */
+
+/* Deliberately quieter than `.admin-link`: it is a read-only fact you consult
+   when checking a deployment, not a control, so it must not compete with the
+   links beside it.
+
+   It does not reuse `--gallery-muted`. That grey is 2.96:1 on the light canvas,
+   below the 4.5:1 that WCAG AA asks of body text, and this is the one piece of
+   text whose whole purpose is to be read accurately. The values below are
+   chosen for the contrast they actually reach on each canvas. */
+.admin-version {
+  --admin-version-ink: #6b6b6b;
+
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--admin-version-ink);
+  /* Selectable: the usual reason to touch this is copying the number into a bug
+     report or a `docker pull`. */
+  user-select: text;
+}
+
+html[data-theme='dark'] .admin-version {
+  --admin-version-ink: #8a8a8a;
+}
+
 /* "Admin not configured" notice */
 
 .admin-disabled {
