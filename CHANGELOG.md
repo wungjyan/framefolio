@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/wungjyan/framefolio/compare/1.1.0...1.2.0) (2026-09-18)
+
+
+### Features
+
+* show the running image version in the admin header ([81b4422](https://github.com/wungjyan/framefolio/commit/81b4422037e1128512051b4b40f8b934bafcb07d))
+
 ## [1.1.0](https://github.com/wungjyan/framefolio/compare/1.0.0...1.1.0) (2026-09-18)
 
 
