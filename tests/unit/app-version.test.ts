@@ -114,4 +114,42 @@ describe('version wiring', () => {
 
     expect(page).toContain('<AdminVersionBadge :version="appVersion" />')
   })
+
+  it('groups the version with the title, not with the header controls', async () => {
+    // The version is a fact, not an action. Sitting it in the actions row gave
+    // it the same weight as the two links and read as "four buttons"; the
+    // header then looked cluttered. It belongs with the title, which together
+    // with the version answers "which deployment is this?".
+    const page = await read('app/pages/admin/index.vue')
+
+    const identity =
+      /<div class="admin-header__identity">([\s\S]*?)<\/div>/.exec(page)?.[1]
+    const actions = /<div class="admin-header__actions">([\s\S]*?)<\/div>/.exec(
+      page
+    )?.[1]
+
+    expect(identity).toContain('AdminVersionBadge')
+    expect(identity).toContain('admin-header__title')
+    expect(actions).not.toContain('AdminVersionBadge')
+  })
+
+  it('puts the theme toggle last, matching the public gallery header', async () => {
+    // GalleryHeader renders its other control before the theme toggle, so the
+    // toggle is the rightmost item on both pages.
+    const page = await read('app/pages/admin/index.vue')
+    const actions =
+      /<div class="admin-header__actions">([\s\S]*?)<\/div>/.exec(page)?.[1] ??
+      ''
+    const gallery = await read('app/components/gallery/GalleryHeader.vue')
+
+    expect(actions.indexOf('AdminThemeToggle')).toBeGreaterThan(
+      actions.indexOf('onLogout')
+    )
+    // The gallery's toggle is the last control in its nav.
+    const nav = /<nav class="header-controls"[\s\S]*?<\/nav>/.exec(gallery)?.[0]
+    expect(nav).toBeTruthy()
+    expect(nav?.lastIndexOf('theme-toggle')).toBeGreaterThan(
+      nav?.indexOf('layout-switch') ?? 0
+    )
+  })
 })

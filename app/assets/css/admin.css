@@ -52,6 +52,20 @@
   letter-spacing: 0.08em;
 }
 
+/* Title plus version, as one unit.
+   The version used to sit in `.admin-header__actions`, which made it a fourth
+   item in a row of links and gave it the same weight as "查看网站" and
+   "退出登录" despite being the only thing there you cannot click. Keeping it
+   beside the title groups the two halves of "which deployment is this?" and
+   leaves the right-hand side as controls only.
+   `baseline` rather than `center`: the title and the version are both text, and
+   their baselines are what should line up. */
+.admin-header__identity {
+  display: flex;
+  align-items: baseline;
+  gap: var(--gallery-space-sm);
+}
+
 .admin-header__actions {
   display: flex;
   gap: var(--gallery-space-sm);
@@ -209,9 +223,13 @@ html[data-theme='dark'] .admin-theme-toggle__icon--dark {
 
 /* Version badge */
 
-/* Deliberately quieter than `.admin-link`: it is a read-only fact you consult
-   when checking a deployment, not a control, so it must not compete with the
-   links beside it.
+/* Sits beside the title, deliberately quieter than it: the title names the
+   page, the version qualifies it. It reads as metadata rather than as a fourth
+   control in the row of links.
+
+   `min-height` is gone with the move. It existed to match the 28px control
+   height while the badge shared a row with buttons; next to the title, that
+   height only pushed the two baselines apart.
 
    It does not reuse `--gallery-muted`. That grey is 2.96:1 on the light canvas,
    below the 4.5:1 that WCAG AA asks of body text, and this is the one piece of
@@ -220,9 +238,6 @@ html[data-theme='dark'] .admin-theme-toggle__icon--dark {
 .admin-version {
   --admin-version-ink: #6b6b6b;
 
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.75rem;
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
   color: var(--admin-version-ink);

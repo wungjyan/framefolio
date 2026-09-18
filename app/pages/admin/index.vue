@@ -457,14 +457,21 @@ FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令</code></pre>
 
     <template v-else>
       <header class="admin-header">
-        <h1 class="admin-header__title">FRAMEFOLIO 管理</h1>
-        <div class="admin-header__actions">
+        <!-- The version sits with the title because together they answer "which
+             deployment is this?" — it is not a control, so grouping it with the
+             links on the right made the same line read as four equal actions. -->
+        <div class="admin-header__identity">
+          <h1 class="admin-header__title">FRAMEFOLIO 管理</h1>
           <AdminVersionBadge :version="appVersion" />
-          <AdminThemeToggle />
+        </div>
+        <div class="admin-header__actions">
           <a class="admin-link" href="/">查看网站</a>
           <button class="admin-link" type="button" @click="onLogout">
             退出登录
           </button>
+          <!-- Last, matching the public gallery's header, which also puts the
+               theme toggle after its other control. -->
+          <AdminThemeToggle />
         </div>
       </header>
 
