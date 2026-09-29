@@ -301,7 +301,10 @@ function unlockBackgroundScroll(): void {
 
 .photo-viewer[open] {
   display: grid;
-  grid-template-rows: 4rem minmax(0, 1fr) auto;
+  /* The last row keeps its height even when the metadata footer is absent, so a
+     photo without EXIF sits exactly as high as one with it instead of running
+     into the bottom edge of the screen. */
+  grid-template-rows: 4rem minmax(0, 1fr) minmax(5.5rem, auto);
 }
 
 .photo-viewer::backdrop {
@@ -402,7 +405,6 @@ function unlockBackgroundScroll(): void {
 }
 
 .photo-viewer__metadata {
-  min-height: 5.5rem;
   padding: 1rem var(--gallery-gutter) 1.25rem;
   color: var(--gallery-muted);
   font-size: 0.6875rem;
@@ -434,7 +436,7 @@ function unlockBackgroundScroll(): void {
 
 @media (max-width: 47.999rem) {
   .photo-viewer[open] {
-    grid-template-rows: 3.5rem minmax(0, 1fr) auto;
+    grid-template-rows: 3.5rem minmax(0, 1fr) minmax(4.75rem, auto);
   }
 
   .photo-viewer__media {
@@ -456,7 +458,6 @@ function unlockBackgroundScroll(): void {
   }
 
   .photo-viewer__metadata {
-    min-height: 4.75rem;
     padding-top: 0.75rem;
   }
 }
