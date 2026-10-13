@@ -59,8 +59,7 @@ export default defineEventHandler(async event => {
     // answer rather than echoing the index's claim that it uploaded them.
     return {
       ...base,
-      connected: false,
-      message: '对象存储未配置，当前仅使用本地存储。'
+      connected: false
     } satisfies AdminStorageStatusResponse
   }
 

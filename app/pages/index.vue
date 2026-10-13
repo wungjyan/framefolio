@@ -4,6 +4,7 @@ import PhotoViewer from '../components/viewer/PhotoViewer.vue'
 
 const { isDesktop, isMobile, layout, setLayout } = useGalleryLayout()
 const { theme, toggleTheme } = useTheme()
+const { t } = useLocale()
 const selectedPhotoId = ref<string>()
 const viewerTrigger = shallowRef<HTMLButtonElement>()
 const {
@@ -50,7 +51,7 @@ async function closeViewer(): Promise<void> {
       <section
         v-if="status === 'pending' && photos.length === 0"
         class="gallery-loading"
-        aria-label="正在加载照片"
+        :aria-label="t('gallery.loading')"
         aria-busy="true"
       >
         <span v-for="index in 3" :key="index" />
@@ -60,9 +61,13 @@ async function closeViewer(): Promise<void> {
         v-else-if="error"
         class="gallery-state"
         role="alert"
-        aria-label="照片加载失败"
+        :aria-label="t('gallery.loadFailed')"
       >
-        <button type="button" aria-label="重新加载" @click="refresh()">
+        <button
+          type="button"
+          :aria-label="t('gallery.reload')"
+          @click="refresh()"
+        >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M20 11a8 8 0 1 0-2.34 5.66" />
             <path d="M20 5v6h-6" />
@@ -74,7 +79,7 @@ async function closeViewer(): Promise<void> {
         v-else-if="photos.length === 0"
         class="gallery-state"
         role="status"
-        aria-label="暂无照片"
+        :aria-label="t('gallery.empty')"
       >
         <svg
           class="gallery-state__empty"

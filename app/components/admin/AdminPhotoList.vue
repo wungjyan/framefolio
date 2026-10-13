@@ -18,6 +18,8 @@ const emit = defineEmits<{
   delete: [photo: AdminPhoto]
 }>()
 
+const { t } = useLocale()
+
 function badgeClass(photo: AdminPhoto): string {
   return photo.state === 'unchanged'
     ? 'admin-badge'
@@ -40,23 +42,23 @@ const hasPhotos = computed(() => props.photos.length > 0)
 
 <template>
   <div v-if="!hasPhotos" class="admin-empty">
-    还没有照片。上传照片或把文件放进 data/originals/ 后点击「立即同步」。
+    {{ t('photos.empty') }}
   </div>
 
   <table v-else class="admin-table">
     <thead>
       <tr>
-        <th scope="col">预览</th>
-        <th scope="col">文件名</th>
-        <th scope="col">尺寸</th>
-        <th scope="col">大小</th>
-        <th scope="col">状态</th>
-        <th scope="col">操作</th>
+        <th scope="col">{{ t('photos.column.preview') }}</th>
+        <th scope="col">{{ t('photos.column.filename') }}</th>
+        <th scope="col">{{ t('photos.column.dimensions') }}</th>
+        <th scope="col">{{ t('photos.column.size') }}</th>
+        <th scope="col">{{ t('photos.column.state') }}</th>
+        <th scope="col">{{ t('photos.column.actions') }}</th>
       </tr>
     </thead>
     <tbody>
       <tr v-for="photo in photos" :key="photo.id">
-        <td data-label="预览">
+        <td :data-label="t('photos.column.preview')">
           <img
             v-if="thumbnailUrl(photo)"
             class="admin-table__thumb"
@@ -68,38 +70,40 @@ const hasPhotos = computed(() => props.photos.length > 0)
           <span v-else class="admin-table__thumb" aria-hidden="true" />
         </td>
 
-        <td class="admin-table__name" data-label="文件名">
+        <td class="admin-table__name" :data-label="t('photos.column.filename')">
           {{ photo.filename }}
         </td>
 
-        <td data-label="尺寸">
+        <td :data-label="t('photos.column.dimensions')">
           <template v-if="photo.width > 0">
             {{ photo.width }} × {{ photo.height }}
           </template>
           <template v-else>—</template>
         </td>
 
-        <td data-label="大小">{{ formatBytes(photo.source.size) }}</td>
+        <td :data-label="t('photos.column.size')">
+          {{ formatBytes(photo.source.size) }}
+        </td>
 
-        <td data-label="状态">
+        <td :data-label="t('photos.column.state')">
           <span :class="badgeClass(photo)">{{
-            photoStateLabel(photo.state)
+            photoStateLabel(photo.state, t)
           }}</span>
         </td>
 
-        <td data-label="操作">
+        <td :data-label="t('photos.column.actions')">
           <button
             class="admin-button admin-button--secondary admin-button--small"
             type="button"
             :disabled="busy || !canDelete(photo)"
             :title="
               canDelete(photo)
-                ? '移入回收站（需同步后才会从网站移除）'
-                : '该照片已在待删除状态'
+                ? t('photos.delete.title')
+                : t('photos.delete.disabledTitle')
             "
             @click="emit('delete', photo)"
           >
-            删除
+            {{ t('common.delete') }}
           </button>
         </td>
       </tr>

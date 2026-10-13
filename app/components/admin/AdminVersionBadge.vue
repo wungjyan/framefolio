@@ -15,10 +15,12 @@ defineProps<{
   /** Released version, for example `1.1.0`. Never empty; the build fails without it. */
   version: string
 }>()
+
+const { t } = useLocale()
 </script>
 
 <template>
-  <span class="admin-version" :title="`当前运行的镜像版本：${version}`">
+  <span class="admin-version" :title="t('version.title', { version })">
     v{{ version }}
   </span>
 </template>

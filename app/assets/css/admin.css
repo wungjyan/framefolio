@@ -189,9 +189,18 @@
   color: var(--gallery-ink);
 }
 
-/* Theme toggle */
-
-.admin-theme-toggle svg {
+/* Header icon toggles (theme, language)
+ *
+ * ONE rule for both. They sit side by side in the same row and are the same
+ * kind of control, so a size difference between them reads as an unintended
+ * colour difference: identical `--gallery-muted` strokes look heavier in the
+ * larger box, which made the language icon appear darker than the theme icon.
+ *
+ * The button box itself comes from `.admin-link` (`inline-flex`, no padding,
+ * `min-height: 1.75rem`); only the icon size belongs here. Do not give either
+ * toggle its own width/padding — that is exactly what caused the mismatch. */
+.admin-theme-toggle svg,
+.admin-locale-toggle svg {
   width: 1.125rem;
   height: 1.125rem;
   fill: none;

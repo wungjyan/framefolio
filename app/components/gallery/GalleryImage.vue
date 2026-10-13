@@ -17,6 +17,8 @@ const emit = defineEmits<{
   select: [photo: GalleryPhoto, trigger: HTMLButtonElement]
 }>()
 
+const { t } = useLocale()
+
 const loadState = ref<'idle' | 'loaded' | 'error'>('idle')
 
 function selectPhoto(event: MouseEvent): void {
@@ -28,7 +30,7 @@ function selectPhoto(event: MouseEvent): void {
   <button
     class="gallery-image"
     type="button"
-    :aria-label="`打开照片 ${photo.filename}`"
+    :aria-label="t('gallery.openPhoto', { filename: photo.filename })"
     :aria-pressed="selected"
     aria-haspopup="dialog"
     :data-state="loadState"

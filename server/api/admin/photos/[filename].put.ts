@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 import type { AdminUploadResponse } from '../../../../shared/types/admin'
 import { getAdminContext } from '../../../utils/admin-context'
 import { requireAdmin } from '../../../utils/admin-guard'
+import { throwAdminError } from '../../../utils/admin-error'
 import { resolveOriginalPath } from '../../../utils/admin-gallery'
 import {
   sanitizeUploadFilename,
@@ -35,13 +36,13 @@ export default defineEventHandler(async event => {
     : undefined
 
   if (!filename) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid filename.' })
+    throwAdminError(400, 'invalid-filename', 'Invalid filename.')
   }
 
   const targetPath = resolveOriginalPath(paths.originals, filename)
 
   if (!targetPath) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid filename.' })
+    throwAdminError(400, 'invalid-filename', 'Invalid filename.')
   }
 
   await mkdir(paths.incoming, { recursive: true })
@@ -52,10 +53,7 @@ export default defineEventHandler(async event => {
     const stream = getRequestWebStream(event)
 
     if (!stream) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Missing request body.'
-      })
+      throwAdminError(400, 'missing-request-body', 'Missing request body.')
     }
 
     await writeStreamWithLimit(stream, stagingPath, config.maxUploadBytes)
@@ -63,16 +61,14 @@ export default defineEventHandler(async event => {
     const received = (await stat(stagingPath)).size
 
     if (received === 0) {
-      throw createError({ statusCode: 400, statusMessage: 'Empty upload.' })
+      throwAdminError(400, 'empty-upload', 'Empty upload.')
     }
 
     const validation = await validateUploadedImage(stagingPath, filename)
 
     if (!validation.ok) {
-      throw createError({
-        statusCode: 415,
-        statusMessage: validation.reason ?? 'Unsupported image.'
-      })
+      const failure = validation.error ?? { code: 'upload-not-an-image' }
+      throwAdminError(415, failure.code, 'Unsupported image.', failure.params)
     }
 
     // Enforce the pixel limit before publishing. Without this, a file small
@@ -87,22 +83,29 @@ export default defineEventHandler(async event => {
     if (!dimensions) {
       // Treat "cannot measure" as a rejection. Assuming no limit here would let
       // a crafted header slip past the check entirely.
-      throw createError({
-        statusCode: 415,
-        statusMessage: 'Could not read the image dimensions.'
-      })
+      throwAdminError(
+        415,
+        'upload-dimensions-unreadable',
+        'Could not read the image dimensions.'
+      )
     }
 
     const pixels = dimensions.width * dimensions.height
 
     if (pixels > config.maxUploadPixels) {
-      throw createError({
-        statusCode: 413,
-        statusMessage:
-          `Image is ${dimensions.width}x${dimensions.height} ` +
+      throwAdminError(
+        413,
+        'upload-too-many-pixels',
+        `Image is ${dimensions.width}x${dimensions.height} ` +
           `(${formatMegapixels(pixels)}), which exceeds the ` +
-          `${formatMegapixels(config.maxUploadPixels)} limit.`
-      })
+          `${formatMegapixels(config.maxUploadPixels)} limit.`,
+        {
+          width: dimensions.width,
+          height: dimensions.height,
+          pixels: formatMegapixels(pixels),
+          limit: formatMegapixels(config.maxUploadPixels)
+        }
+      )
     }
 
     // Overwrite semantics: uploading the same name replaces the original, which
@@ -153,10 +156,12 @@ async function writeStreamWithLimit(
         total += value.byteLength
 
         if (total > maxBytes) {
-          throw createError({
-            statusCode: 413,
-            statusMessage: `Upload exceeds the ${Math.floor(maxBytes / (1024 * 1024))} MB limit.`
-          })
+          throwAdminError(
+            413,
+            'upload-too-large',
+            `Upload exceeds the ${Math.floor(maxBytes / (1024 * 1024))} MB limit.`,
+            { limitMb: Math.floor(maxBytes / (1024 * 1024)) }
+          )
         }
 
         yield value

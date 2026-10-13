@@ -8,6 +8,7 @@ import { parseStorageSource } from '../../../../shared/node/photo-url'
 import type { AdminStorageSourceResponse } from '../../../../shared/types/admin'
 import { getAdminContext } from '../../../utils/admin-context'
 import { requireAdmin } from '../../../utils/admin-guard'
+import { throwAdminError } from '../../../utils/admin-error'
 
 /**
  * Switch the active storage source.
@@ -29,20 +30,21 @@ export default defineEventHandler(async event => {
       : undefined
 
   if (requested !== 'local' && requested !== 'r2') {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'The source must be "local" or "r2".'
-    })
+    throwAdminError(
+      400,
+      'storage-source-invalid',
+      'The source must be "local" or "r2".'
+    )
   }
 
   const storage = resolveStorageConfig()
 
   if (requested === 'r2' && !isObjectStorageConfigured(storage)) {
-    throw createError({
-      statusCode: 400,
-      statusMessage:
-        'Object storage is not configured. Set the FRAMEFOLIO_S3_* variables first.'
-    })
+    throwAdminError(
+      400,
+      'storage-source-unconfigured',
+      'Object storage is not configured. Set the FRAMEFOLIO_S3_* variables first.'
+    )
   }
 
   const state = await writeStorageState(paths.storageState, requested)

@@ -332,6 +332,30 @@ EXIF 字体和视觉层级弱于照片，不要抢主体。
 - 切换不得产生首屏闪烁；颜色统一走语义变量，不允许硬编码颜色。
 - 布局切换图标仍仅桌面显示，主题切换不受此限制。
 
+### 多语言
+
+支持简体中文与英文两套界面文案（管理端与公开画廊共用同一个语言选择）：
+
+- 首次访问跟随浏览器语言（`zh*` → 中文，其余 → 英文），手动切换后记住选择。
+- 管理端 Header 提供极简切换图标；公开画廊的主题/布局标签同样随语言切换。
+- 文案集中在 `app/i18n/zh.ts` 与 `app/i18n/en.ts`，英文表以中文表的键为准做类型约束 —— **漏译是编译错误，不会静默回退中文**。
+- **服务端不返回面向用户的句子**，只返回稳定错误码（`data.code`），由前端翻译。原因：服务端无法知道界面当前用哪种语言。
+- 与主题一致，语言切换不引入额外依赖（手写 composable，见 `app/composables/useLocale.ts`），并同步更新 `<html lang>`。
+
+#### 开发约定：`app/` 只能从 `shared/` 导入类型
+
+`app/` 下的代码若以**运行时值**的形式导入 `shared/`，Nitro 服务端打包会失败
+（`Could not resolve "../../../../../../../shared/..."`）—— 产物 chunk 落在
+`node_modules/.cache` 下，相对路径已经越出构建根目录。
+
+因此该边界只允许 `import type`（编译期擦除）。`app/` 中所有既有的 `shared/` 导入
+都遵守这条规则。若确实需要共享运行时值，应把它登记在 `shared/constants/` 之外的
+**前端侧**模块中，或经由 API 传递 —— 不要直接 import。
+
+> 实例：`app/i18n/messages.ts` 需要错误码清单。做法是只 `import type AdminErrorCode`，
+> 运行时集合则由 `error.*` 文案键推导；`tests/unit/admin-errors.test.ts` 断言推导结果与
+> `shared/constants/admin-errors.ts` 的 `ADMIN_ERROR_CODES` 完全一致，防止两边漂移。
+
 ---
 
 ## 8. Docker

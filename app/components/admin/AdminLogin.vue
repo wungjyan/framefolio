@@ -10,6 +10,8 @@ const emit = defineEmits<{
   submit: [password: string]
 }>()
 
+const { t } = useLocale()
+
 const password = ref('')
 const error = ref('')
 const submitting = ref(false)
@@ -32,7 +34,7 @@ function onSubmit(): void {
   }
 
   if (password.value.length === 0) {
-    error.value = '请输入管理口令。'
+    error.value = t('login.error.empty')
     return
   }
 
@@ -46,10 +48,12 @@ defineExpose({ reset, setError })
 
 <template>
   <form class="admin-login" @submit.prevent="onSubmit">
-    <h1 class="admin-login__title">FRAMEFOLIO 管理</h1>
+    <h1 class="admin-login__title">{{ t('admin.brand') }}</h1>
 
     <div class="admin-field">
-      <label class="admin-field__label" for="admin-password">管理口令</label>
+      <label class="admin-field__label" for="admin-password">
+        {{ t('login.passwordLabel') }}
+      </label>
       <input
         id="admin-password"
         v-model="password"
@@ -72,7 +76,7 @@ defineExpose({ reset, setError })
     </p>
 
     <button class="admin-button" type="submit" :disabled="submitting">
-      {{ submitting ? '登录中…' : '登录' }}
+      {{ submitting ? t('login.submitting') : t('login.submit') }}
     </button>
   </form>
 </template>

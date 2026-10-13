@@ -16,6 +16,7 @@ Day-to-day management happens in the web admin area, including uploads, deletion
 - Built-in `/admin` area for uploads, recoverable deletion, pending-change status, and manual sync, with a mobile-friendly layout.
 - S3-compatible object storage with runtime switching between local and object-storage image sources.
 - Light and dark themes.
+- Simplified Chinese and English interface, including the admin area; the initial choice follows the browser language and is remembered afterwards.
 
 Supported originals: JPEG, PNG, TIFF, and WebP. HEIC, HEIF, AVIF, GIF, and camera RAW are not supported yet.
 

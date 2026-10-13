@@ -22,8 +22,10 @@ import { storageSourceSwitchMessage } from '../../utils/admin-format'
  * (`routeRules` sets `ssr: false` for /admin/**), because everything here is
  * runtime state: session, job progress, and pending changes.
  */
+const { t, translateError } = useLocale()
+
 useHead({
-  title: '管理 · Framefolio',
+  title: () => t('admin.pageTitle'),
   meta: [{ name: 'robots', content: 'noindex, nofollow' }]
 })
 
@@ -168,10 +170,10 @@ async function onSelectSource(source: 'local' | 'r2'): Promise<void> {
 
   try {
     storageSource.value = await api.setStorageSource(source)
-    setMessage(storageSourceSwitchMessage(source), 'muted')
+    setMessage(storageSourceSwitchMessage(source, t), 'muted')
     await loadStorage()
-  } catch (error: unknown) {
-    setMessage(readMessage(error, '切换访问源失败。'), 'warning')
+  } catch {
+    setMessage(t('storage.switchFailed'), 'warning')
   } finally {
     switchingSource.value = false
   }
@@ -188,22 +190,23 @@ async function onLogin(password: string): Promise<void> {
 }
 
 /**
- * Map the server's status codes to Chinese messages.
+ * Map the server's status codes to translated messages.
  *
  * The server deliberately returns a generic message (it must not reveal whether
  * the password was wrong or the client is throttled), so the distinction is
- * made from the status code instead of by parsing the message text.
+ * made from the status code instead of by parsing the message text. The codes
+ * are the same in both languages, so this mapping does not need translating.
  */
 function describeLoginError(error: unknown): string {
   switch (readStatusCode(error)) {
     case 429:
-      return '尝试次数过多，请稍后再试。'
+      return t('login.error.throttled')
     case 401:
-      return '口令不正确。'
+      return t('login.error.invalid')
     case 404:
-      return '管理端未启用：服务端未配置管理口令。'
+      return t('login.error.disabled')
     default:
-      return '登录失败，请检查网络后重试。'
+      return t('login.error.network')
   }
 }
 
@@ -218,7 +221,7 @@ async function onSync(): Promise<void> {
   }
 
   syncing.value = true
-  setMessage('正在同步…', 'muted')
+  setMessage(t('sync.starting'), 'muted')
 
   try {
     // The POST only starts the run and returns in milliseconds; it does not
@@ -233,10 +236,10 @@ async function onSync(): Promise<void> {
     if (statusCode === 409) {
       // Another run is already in flight (another tab, or the CLI). Follow
       // that one rather than reporting a failure.
-      setMessage('已有同步任务在运行，正在等待其完成…', 'warning')
+      setMessage(t('sync.alreadyRunning'), 'warning')
       await followRunningSync()
     } else {
-      setMessage(readMessage(error, '同步失败。'), 'warning')
+      setMessage(translateError(error, 'sync.failed'), 'warning')
     }
   } finally {
     stopPolling()
@@ -290,10 +293,7 @@ async function pollSyncStatus(): Promise<void> {
     // Give up after a few tries and say so; the run itself is unaffected and
     // the ledger still holds the outcome.
     if (pollFailures >= MAX_POLL_FAILURES) {
-      setMessage(
-        '无法获取同步进度：与管理端的连接中断。任务可能仍在后台进行，请稍后刷新页面查看结果。',
-        'warning'
-      )
+      setMessage(t('sync.pollLost'), 'warning')
       stopPolling()
     }
     return
@@ -327,11 +327,11 @@ function reportSyncOutcome(): void {
   const last = syncStatus.value?.last
 
   if (last?.status === 'failed') {
-    setMessage('同步完成，但存在失败项，详见下方同步面板。', 'warning')
+    setMessage(t('sync.doneWithFailures'), 'warning')
     return
   }
 
-  setMessage('同步完成。', 'muted')
+  setMessage(t('sync.done'), 'muted')
 }
 
 function startPolling(): void {
@@ -379,23 +379,17 @@ async function confirmDelete(): Promise<void> {
     deleteTarget.value = undefined
     // The photo is still published: say so, so the delay is not forgotten.
     // Attention, not warning: nothing is wrong, the change just is not live yet.
-    setMessage(
-      `已将「${target.filename}」移入回收站。它仍显示在网站上，点击「立即同步」后才会移除。`,
-      'attention'
-    )
+    setMessage(t('delete.notice', { filename: target.filename }), 'attention')
     await loadPhotos()
   } catch (error: unknown) {
-    setMessage(readMessage(error, '删除失败。'), 'warning')
+    setMessage(translateError(error, 'delete.failed'), 'warning')
   } finally {
     deleting.value = false
   }
 }
 
 async function onUploaded(): Promise<void> {
-  setMessage(
-    '照片已上传，但尚未显示在网站上。点击「立即同步」后即可展示。',
-    'attention'
-  )
+  setMessage(t('upload.notice'), 'attention')
   await loadPhotos()
 }
 
@@ -415,42 +409,34 @@ function readStatusCode(error: unknown): number {
 
   return 0
 }
-
-function readMessage(error: unknown, fallback: string): string {
-  if (typeof error === 'object' && error !== null) {
-    const candidate = error as { message?: unknown }
-    if (typeof candidate.message === 'string' && candidate.message.length > 0) {
-      return candidate.message
-    }
-  }
-
-  return fallback
-}
 </script>
 
 <template>
   <div class="admin-shell">
     <template v-if="checking">
-      <p class="admin-empty" role="status">正在检查登录状态…</p>
+      <p class="admin-empty" role="status">{{ t('admin.checking') }}</p>
     </template>
 
     <section v-else-if="disabled" class="admin-disabled" role="alert">
-      <h1 class="admin-login__title">FRAMEFOLIO 管理</h1>
-      <p class="admin-disabled__headline">管理端未启用</p>
+      <h1 class="admin-login__title">{{ t('admin.brand') }}</h1>
+      <p class="admin-disabled__headline">{{ t('disabled.headline') }}</p>
       <p class="admin-disabled__text">
-        服务端没有配置管理口令，因此所有 <code>/api/admin/*</code> 接口都返回
-        404。
+        {{ t('disabled.apiExplanationBefore') }}
+        <code>/api/admin/*</code>
+        {{ t('disabled.apiExplanationAfter') }}
       </p>
       <p class="admin-disabled__text">
-        设置环境变量 <code>FRAMEFOLIO_ADMIN_PASSWORD</code> 后重启即可启用：
+        {{ t('disabled.setEnvBefore') }}
+        <code>FRAMEFOLIO_ADMIN_PASSWORD</code>
+        {{ t('disabled.setEnvAfter') }}
       </p>
-      <pre class="admin-disabled__code"><code># .env（与 compose 文件同目录）
-FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令</code></pre>
-      <p class="admin-disabled__text">本地开发时直接在命令前加上变量即可：</p>
+      <pre class="admin-disabled__code"><code>{{ t('disabled.envComment') }}
+{{ t('disabled.envExample') }}</code></pre>
+      <p class="admin-disabled__text">{{ t('disabled.localDev') }}</p>
       <pre
         class="admin-disabled__code"
-      ><code>FRAMEFOLIO_ADMIN_PASSWORD=你的口令 pnpm dev</code></pre>
-      <p class="admin-disabled__hint">公开画廊不受影响，始终可以正常访问。</p>
+      ><code>{{ t('disabled.localDevExample') }}</code></pre>
+      <p class="admin-disabled__hint">{{ t('disabled.publicUnaffected') }}</p>
     </section>
 
     <AdminLogin v-else-if="!authenticated" ref="loginForm" @submit="onLogin" />
@@ -461,16 +447,17 @@ FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令</code></pre>
              deployment is this?" — it is not a control, so grouping it with the
              links on the right made the same line read as four equal actions. -->
         <div class="admin-header__identity">
-          <h1 class="admin-header__title">FRAMEFOLIO 管理</h1>
+          <h1 class="admin-header__title">{{ t('admin.brand') }}</h1>
           <AdminVersionBadge :version="appVersion" />
         </div>
         <div class="admin-header__actions">
-          <a class="admin-link" href="/">查看网站</a>
+          <a class="admin-link" href="/">{{ t('header.viewSite') }}</a>
           <button class="admin-link" type="button" @click="onLogout">
-            退出登录
+            {{ t('header.logout') }}
           </button>
-          <!-- Last, matching the public gallery's header, which also puts the
-               theme toggle after its other control. -->
+          <!-- Language first, then theme: both match the public gallery's
+               header, which puts the theme toggle last. -->
+          <AdminLocaleToggle />
           <AdminThemeToggle />
         </div>
       </header>
@@ -490,15 +477,17 @@ FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令</code></pre>
         class="admin-notice admin-notice--warning"
         role="alert"
       >
-        <strong>索引需要重建。</strong>
-        现有 <code>data/photos.json</code> 是旧格式，当前版本读不了，
-        因此所有照片都显示为「待新增」。点下面的「立即同步」重建索引即可；
-        <strong>未点同步之前，公开画廊会显示错误状态</strong
-        >。首次同步会重新生成全部缩略图，之后都是增量。
+        <strong>{{ t('reindex.headline') }}</strong>
+        {{ t('reindex.reason') }}
+        {{ t('reindex.fix') }}
+        <strong>{{ t('reindex.warning') }}</strong>
+        {{ t('reindex.firstRun') }}
       </p>
 
       <section class="admin-section" aria-labelledby="admin-sync-heading">
-        <h2 id="admin-sync-heading" class="admin-section__title">同步</h2>
+        <h2 id="admin-sync-heading" class="admin-section__title">
+          {{ t('section.sync') }}
+        </h2>
         <AdminSyncPanel
           :status="syncStatus"
           :pending-total="pending?.total"
@@ -506,17 +495,21 @@ FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令</code></pre>
           @sync="onSync"
         />
         <p class="admin-notice admin-notice--attention">
-          上传和删除都不会立即生效。网站上的内容只在你按下「立即同步」后才会改变。
+          {{ t('sync.notice') }}
         </p>
       </section>
 
       <section class="admin-section" aria-labelledby="admin-upload-heading">
-        <h2 id="admin-upload-heading" class="admin-section__title">上传照片</h2>
+        <h2 id="admin-upload-heading" class="admin-section__title">
+          {{ t('section.upload') }}
+        </h2>
         <AdminUploader @uploaded="onUploaded" />
       </section>
 
       <section class="admin-section" aria-labelledby="admin-storage-heading">
-        <h2 id="admin-storage-heading" class="admin-section__title">访问源</h2>
+        <h2 id="admin-storage-heading" class="admin-section__title">
+          {{ t('section.source') }}
+        </h2>
         <AdminStoragePanel
           :source="storageSource"
           :status="storageStatus"
@@ -527,7 +520,7 @@ FRAMEFOLIO_ADMIN_PASSWORD=换成你自己的强口令</code></pre>
 
       <section class="admin-section" aria-labelledby="admin-photos-heading">
         <h2 id="admin-photos-heading" class="admin-section__title">
-          照片（{{ photos.length }}）
+          {{ t('section.photos', { count: photos.length }) }}
         </h2>
         <AdminPhotoList
           :photos="photos"

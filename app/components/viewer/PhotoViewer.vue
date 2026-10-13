@@ -17,6 +17,8 @@ const emit = defineEmits<{
   select: [photoId: string]
 }>()
 
+const { t } = useLocale()
+
 const dialog = ref<HTMLDialogElement>()
 const currentIndex = computed(() =>
   props.photoId
@@ -200,7 +202,7 @@ function unlockBackgroundScroll(): void {
   <dialog
     ref="dialog"
     class="photo-viewer"
-    aria-label="照片查看器"
+    :aria-label="t('viewer.dialog')"
     @click="handleBackdropClick"
     @close="handleClosed"
     @keydown="handleKeydown"
@@ -210,8 +212,8 @@ function unlockBackgroundScroll(): void {
         <button
           data-viewer-close
           type="button"
-          aria-label="关闭照片查看器"
-          title="关闭"
+          :aria-label="t('viewer.close')"
+          :title="t('viewer.closeShort')"
           @click="closeViewer"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -244,8 +246,8 @@ function unlockBackgroundScroll(): void {
         <button
           class="photo-viewer__nav photo-viewer__nav--previous"
           type="button"
-          aria-label="上一张照片"
-          title="上一张"
+          :aria-label="t('viewer.previous')"
+          :title="t('viewer.previousShort')"
           :disabled="!hasPrevious"
           @click="showPrevious"
         >
@@ -257,8 +259,8 @@ function unlockBackgroundScroll(): void {
         <button
           class="photo-viewer__nav photo-viewer__nav--next"
           type="button"
-          aria-label="下一张照片"
-          title="下一张"
+          :aria-label="t('viewer.next')"
+          :title="t('viewer.nextShort')"
           :disabled="!hasNext"
           @click="showNext"
         >
@@ -271,7 +273,7 @@ function unlockBackgroundScroll(): void {
       <footer
         v-if="metadata.equipment || metadata.exposure || metadata.date"
         class="photo-viewer__metadata"
-        aria-label="照片信息"
+        :aria-label="t('viewer.metadata')"
       >
         <p v-if="metadata.equipment">{{ metadata.equipment }}</p>
         <p v-if="metadata.exposure">{{ metadata.exposure }}</p>

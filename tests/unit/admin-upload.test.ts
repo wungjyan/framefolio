@@ -99,7 +99,10 @@ describe('uploaded image validation', () => {
     const result = await validateUploadedImage(path, 'payload.svg')
 
     expect(result.ok).toBe(false)
-    expect(result.reason).toContain('.svg')
+    // A stable code plus its values, not a sentence: the UI is bilingual and
+    // renders the message, so the server must not decide the wording.
+    expect(result.error?.code).toBe('upload-unsupported-type')
+    expect(result.error?.params?.extension).toBe('.svg')
   })
 
   it('rejects HTML renamed to .jpg', async () => {
@@ -111,7 +114,7 @@ describe('uploaded image validation', () => {
     const result = await validateUploadedImage(path, 'evil.jpg')
 
     expect(result.ok).toBe(false)
-    expect(result.reason).toContain('not a recognisable image')
+    expect(result.error?.code).toBe('upload-not-an-image')
   })
 
   it('rejects bytes that contradict the extension', async () => {
@@ -121,7 +124,11 @@ describe('uploaded image validation', () => {
     const result = await validateUploadedImage(path, 'mismatch.png')
 
     expect(result.ok).toBe(false)
-    expect(result.reason).toContain('do not match its extension')
+    expect(result.error?.code).toBe('upload-extension-mismatch')
+    expect(result.error?.params).toEqual({
+      format: 'jpeg',
+      extension: '.png'
+    })
   })
 
   it('requires an extension', async () => {

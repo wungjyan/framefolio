@@ -5,6 +5,7 @@ import {
 } from '../../utils/admin-auth'
 import { resolveAdminConfig } from '../../utils/admin-config'
 import { assertSameOriginRequest } from '../../utils/admin-guard'
+import { throwAdminError } from '../../utils/admin-error'
 import {
   isLoginBlocked,
   recordLoginFailure,
@@ -27,10 +28,11 @@ export default defineEventHandler(async event => {
   if (blocked.blocked) {
     // h3 types `Retry-After` as a number of seconds.
     setResponseHeader(event, 'Retry-After', blocked.retryAfterSeconds ?? 60)
-    throw createError({
-      statusCode: 429,
-      statusMessage: 'Too many failed attempts. Try again later.'
-    })
+    throwAdminError(
+      429,
+      'login-throttled',
+      'Too many failed attempts. Try again later.'
+    )
   }
 
   const body: unknown = await readBody(event).catch(() => undefined)
@@ -41,10 +43,7 @@ export default defineEventHandler(async event => {
 
   if (!verifyAdminPassword(submitted)) {
     recordLoginFailure(key)
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Invalid password.'
-    })
+    throwAdminError(401, 'login-invalid-password', 'Invalid password.')
   }
 
   recordLoginSuccess(key)

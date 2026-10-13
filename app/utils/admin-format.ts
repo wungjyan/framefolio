@@ -1,6 +1,15 @@
-/** Formatting helpers for the admin UI. */
+import type { MessageKey, MessageParams } from '../i18n/messages'
 
-/** Human-readable byte size, e.g. `1.6 MB`. */
+/**
+ * Formatting helpers for the admin UI.
+ *
+ * Every function that produces words takes a `t` function rather than importing
+ * the catalogue, so the locale stays owned by `useLocale` and these remain pure
+ * and directly testable.
+ */
+export type Translate = (key: MessageKey, params?: MessageParams) => string
+
+/** Human-readable byte size, e.g. `1.6 MB`. Units are locale-neutral. */
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) {
     return '—'
@@ -22,8 +31,18 @@ export function formatBytes(bytes: number): string {
   return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unitIndex]}`
 }
 
-/** Local date-time for timestamps, or `—` when absent/invalid. */
-export function formatDateTime(value: string | undefined): string {
+/**
+ * Local date-time for timestamps, or `—` when absent/invalid.
+ *
+ * The Intl tag is passed explicitly instead of `undefined`. Previously these
+ * formatters followed the browser while the surrounding text was hard-coded
+ * Chinese, so an English browser produced an English date beside a Chinese
+ * label; both now follow the selected language.
+ */
+export function formatDateTime(
+  value: string | undefined,
+  locale?: string
+): string {
   if (!value) {
     return '—'
   }
@@ -34,16 +53,17 @@ export function formatDateTime(value: string | undefined): string {
     return '—'
   }
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short'
   }).format(date)
 }
 
-/** Short relative age, e.g. `3 分钟前`. */
+/** Short relative age, e.g. `3 minutes ago` / `3 分钟前`. */
 export function formatRelative(
   value: string | undefined,
-  now: Date = new Date()
+  now: Date = new Date(),
+  locale?: string
 ): string {
   if (!value) {
     return '—'
@@ -56,7 +76,7 @@ export function formatRelative(
   }
 
   const seconds = Math.round((now.getTime() - date.getTime()) / 1000)
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
 
   if (Math.abs(seconds) < 60) {
     return formatter.format(-seconds, 'second')
@@ -76,42 +96,45 @@ export function formatRelative(
 }
 
 /** Display label for a photo state badge. */
-export function photoStateLabel(state: string): string {
+export function photoStateLabel(state: string, t: Translate): string {
   switch (state) {
     case 'added':
-      return '待新增'
+      return t('photos.state.added')
     case 'changed':
-      return '待更新'
+      return t('photos.state.changed')
     case 'pending-delete':
-      return '待删除'
+      return t('photos.state.pendingDelete')
     default:
-      return '已发布'
+      return t('photos.state.unchanged')
   }
 }
 
 /**
- * Chinese label for a sync phase.
+ * Label for a sync phase.
  *
  * The raw values are internal identifiers, so displaying them put English words
- * like "finalising" in an otherwise Chinese panel.
+ * like "finalising" in an otherwise Chinese panel. Every known phase is mapped.
  */
-export function syncPhaseLabel(phase: string | undefined): string {
+export function syncPhaseLabel(
+  phase: string | undefined,
+  t: Translate
+): string {
   switch (phase) {
     case 'scanning':
-      return '扫描原图'
+      return t('sync.phase.scanning')
     case 'processing':
-      return '处理中'
+      return t('sync.phase.processing')
     case 'finalising':
-      return '收尾中'
+      return t('sync.phase.finalising')
     case 'done':
-      return '已完成'
+      return t('sync.phase.done')
     default:
-      return '同步中'
+      return t('sync.phase.unknown')
   }
 }
 
 /**
- * The progress line under the bar, e.g. `处理中 · 已检查原图 12 / 16`.
+ * The progress line under the bar, e.g. `Processing · checked 12 / 16 originals`.
  *
  * The counter is spelled out on purpose. It counts every file in `originals/`,
  * not the number of pending changes, so deleting two photos out of sixteen still
@@ -121,9 +144,14 @@ export function syncPhaseLabel(phase: string | undefined): string {
 export function syncProgressText(
   phase: string | undefined,
   completed: number,
-  total: number
+  total: number,
+  t: Translate
 ): string {
-  return `${syncPhaseLabel(phase)} · 已检查原图 ${completed} / ${total}`
+  return t('sync.progress', {
+    phase: syncPhaseLabel(phase, t),
+    completed,
+    total
+  })
 }
 
 /**
@@ -134,8 +162,11 @@ export function syncProgressText(
  * page that resolved its image URLs when it mounted. Only the r2 wording used to
  * mention this, which made an identical requirement look like an r2-only quirk.
  */
-export function storageSourceSwitchMessage(source: 'local' | 'r2'): string {
+export function storageSourceSwitchMessage(
+  source: 'local' | 'r2',
+  t: Translate
+): string {
   return source === 'r2'
-    ? '访问源已切换为对象存储。刷新首页即可看到图片走 CDN。'
-    : '访问源已切换为本地。刷新首页即可看到图片走本地。'
+    ? t('storage.switchedToRemote')
+    : t('storage.switchedToLocal')
 }

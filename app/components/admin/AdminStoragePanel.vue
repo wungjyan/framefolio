@@ -22,6 +22,8 @@ const emit = defineEmits<{
   select: [source: 'local' | 'r2']
 }>()
 
+const { t } = useLocale()
+
 const canUseRemote = computed(() => props.source?.configured === true)
 
 const completeness = computed(() => {
@@ -69,7 +71,11 @@ const showCachedWarning = computed(() => {
 
 <template>
   <div class="admin-storage">
-    <div class="admin-storage__options" role="radiogroup" aria-label="访问源">
+    <div
+      class="admin-storage__options"
+      role="radiogroup"
+      :aria-label="t('storage.group')"
+    >
       <label class="admin-storage__option">
         <input
           type="radio"
@@ -80,8 +86,8 @@ const showCachedWarning = computed(() => {
           @change="emit('select', 'local')"
         />
         <span>
-          本地
-          <small>图片由本机 /media 路由提供</small>
+          {{ t('storage.local.label') }}
+          <small>{{ t('storage.local.hint') }}</small>
         </span>
       </label>
 
@@ -95,12 +101,12 @@ const showCachedWarning = computed(() => {
           @change="emit('select', 'r2')"
         />
         <span>
-          对象存储（CDN）
+          {{ t('storage.remote.label') }}
           <small v-if="!canUseRemote">
-            未配置，请先设置 FRAMEFOLIO_S3_* 环境变量
+            {{ t('storage.remote.unconfigured') }}
           </small>
           <small v-else-if="source?.publicBaseUrl">
-            基址：{{ source.publicBaseUrl }}
+            {{ t('storage.remote.baseUrl', { url: source.publicBaseUrl }) }}
           </small>
         </span>
       </label>
@@ -108,28 +114,37 @@ const showCachedWarning = computed(() => {
 
     <p v-if="status" class="admin-storage__detail">
       <template v-if="status.source === 'r2' && !status.configured">
-        <strong>已选择对象存储，但配置不完整，当前实际仍使用本地。</strong>
+        <strong>{{ t('storage.status.unconfigured') }}</strong>
       </template>
 
       <template v-else-if="status.source === 'r2' && !status.connected">
-        无法读取对象存储，暂时无法确认 R2 中的可用情况。
+        {{ t('storage.status.unreadable') }}
       </template>
 
       <template v-else-if="status.source === 'r2'">
-        R2 中可用 {{ status.photosWithRemote }} / {{ status.totalPhotos }} 张。
+        {{
+          t('storage.status.available', {
+            available: status.photosWithRemote,
+            total: status.totalPhotos
+          })
+        }}
         <template v-if="completeness !== undefined">
-          派生图完整度 {{ completeness }}%。
+          {{ t('storage.status.completeness', { percent: completeness }) }}
         </template>
         <template v-if="(status.missingObjects ?? 0) > 0">
-          缺失 {{ status.missingObjects }} 个对象，点「立即同步」会补传。
+          {{
+            t('storage.status.missing', { count: status.missingObjects ?? 0 })
+          }}
         </template>
         <template v-if="(status.orphanedObjects ?? 0) > 0">
-          另有 {{ status.orphanedObjects }} 个无引用对象，下次同步会自动清理。
+          {{
+            t('storage.status.orphaned', { count: status.orphanedObjects ?? 0 })
+          }}
         </template>
       </template>
 
       <template v-else>
-        当前使用本地存储。切换到对象存储不需要重新处理图片。
+        {{ t('storage.status.local') }}
       </template>
     </p>
 
@@ -144,17 +159,25 @@ const showCachedWarning = computed(() => {
       class="admin-notice admin-notice--warning"
       role="status"
     >
-      <strong>照片墙现在可能仍能正常显示，但那是缓存。</strong>
-      其中 {{ status?.photosPublishedButMissing }} 张照片仍指向 CDN， 但文件在
-      R2 中已不存在；浏览器和 CDN 返回的是此前缓存的副本。
-      缓存过期后（派生图缓存一年）这些图片会变成裂图，点「立即同步」可立即补回。
+      <strong>{{ t('storage.cached.headline') }}</strong>
+      {{
+        t('storage.cached.body', {
+          count: status?.photosPublishedButMissing ?? 0
+        })
+      }}
     </p>
 
+    <!--
+      Shown only for a *configured* bucket we could not reach, so the label wraps
+      the provider's raw error text. The "not configured" case has no raw error
+      and is already covered by the detail line above, which is why it is not
+      repeated here.
+    -->
     <p
       v-if="status && !status.connected && status.configured"
       class="admin-notice admin-notice--warning"
     >
-      无法连接对象存储：{{ status.message }}
+      {{ t('storage.connectionError', { message: status.message ?? '' }) }}
     </p>
   </div>
 </template>
