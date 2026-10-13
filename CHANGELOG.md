@@ -5,7 +5,6 @@
 
 ### Features
 
-* add a Chinese and English interface ([d14c752](https://github.com/wungjyan/framefolio/commit/d14c7524361f5ecfbf7a633e18de457e7c79c72b))
 * add a Chinese and English interface ([baa1645](https://github.com/wungjyan/framefolio/commit/baa164592f618b4f56978e55236721b8ab49e29f))
 
 
