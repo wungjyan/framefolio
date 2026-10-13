@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/wungjyan/framefolio/compare/1.2.0...1.3.0) (2026-10-13)
+
+
+### Features
+
+* add a Chinese and English interface ([d14c752](https://github.com/wungjyan/framefolio/commit/d14c7524361f5ecfbf7a633e18de457e7c79c72b))
+* add a Chinese and English interface ([baa1645](https://github.com/wungjyan/framefolio/commit/baa164592f618b4f56978e55236721b8ab49e29f))
+
+
+### Bug Fixes
+
+* keep the viewer footer space when a photo has no EXIF ([cd8a10a](https://github.com/wungjyan/framefolio/commit/cd8a10a42abde4e508ab2dc90e17a473be6b53ad))
+
 ## [1.2.0](https://github.com/wungjyan/framefolio/compare/1.1.0...1.2.0) (2026-09-18)
 
 
