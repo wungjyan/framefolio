@@ -12,12 +12,13 @@
  * control, and the label spells out what a click will do.
  */
 const { theme, toggleTheme } = useTheme()
+const { t } = useLocale()
 
 const currentThemeName = computed(() =>
-  theme.value === 'dark' ? '深色主题' : '浅色主题'
+  theme.value === 'dark' ? t('theme.dark') : t('theme.light')
 )
 const targetThemeName = computed(() =>
-  theme.value === 'dark' ? '浅色主题' : '深色主题'
+  theme.value === 'dark' ? t('theme.light') : t('theme.dark')
 )
 </script>
 
@@ -25,8 +26,12 @@ const targetThemeName = computed(() =>
   <button
     type="button"
     class="admin-link admin-theme-toggle"
-    :aria-label="`当前为${currentThemeName}，切换到${targetThemeName}`"
-    :title="`当前：${currentThemeName}（切换到${targetThemeName}）`"
+    :aria-label="
+      t('theme.aria', { current: currentThemeName, target: targetThemeName })
+    "
+    :title="
+      t('theme.title', { current: currentThemeName, target: targetThemeName })
+    "
     @click="toggleTheme"
   >
     <svg

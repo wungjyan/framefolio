@@ -23,6 +23,7 @@ interface UploadItem {
 }
 
 const api = useAdminApi()
+const { t, translateError } = useLocale()
 const items = ref<UploadItem[]>([])
 const dragging = ref(false)
 const busy = ref(false)
@@ -100,14 +101,7 @@ function clearFinished(): void {
 }
 
 function readErrorMessage(error: unknown): string {
-  if (typeof error === 'object' && error !== null) {
-    const candidate = error as { message?: unknown }
-    if (typeof candidate.message === 'string' && candidate.message.length > 0) {
-      return candidate.message
-    }
-  }
-
-  return '上传失败'
+  return translateError(error, 'upload.errorFallback')
 }
 
 const doneCount = computed(
@@ -127,8 +121,8 @@ const errorCount = computed(
       @dragleave.prevent="dragging = false"
       @drop.prevent="onDrop"
     >
-      <span>选择照片，或拖拽文件到这里</span>
-      <span>支持 JPG / PNG / WebP / TIFF</span>
+      <span>{{ t('upload.dropzone') }}</span>
+      <span>{{ t('upload.formats') }}</span>
       <input
         ref="input"
         class="visually-hidden"
@@ -141,7 +135,7 @@ const errorCount = computed(
     </label>
 
     <p v-if="busy" class="admin-notice admin-notice--muted" role="status">
-      正在上传…（{{ doneCount }} / {{ items.length }}）
+      {{ t('upload.progress', { done: doneCount, total: items.length }) }}
     </p>
 
     <ul v-if="items.length > 0" class="admin-upload-list">
@@ -153,14 +147,16 @@ const errorCount = computed(
       >
         <span class="admin-upload-item__name">{{ item.file.name }}</span>
         <span>
-          <template v-if="item.status === 'uploading'">上传中…</template>
+          <template v-if="item.status === 'uploading'">
+            {{ t('upload.item.uploading') }}
+          </template>
           <template v-else-if="item.status === 'done'">
-            已上传 {{ item.message }}
+            {{ t('upload.item.done', { size: item.message ?? '' }) }}
           </template>
           <template v-else-if="item.status === 'error'">
             {{ item.message }}
           </template>
-          <template v-else>等待中</template>
+          <template v-else>{{ t('upload.item.pending') }}</template>
         </span>
       </li>
     </ul>
@@ -170,15 +166,15 @@ const errorCount = computed(
       class="admin-notice admin-notice--attention"
       role="status"
     >
-      已上传
-      {{ doneCount }}
-      张。<strong>这些照片尚未出现在网站上</strong>，请点击「立即同步」后才会展示。
+      {{ t('upload.doneCount', { count: doneCount }) }}
+      <strong>{{ t('upload.doneStrong') }}</strong>
+      {{ t('upload.doneHint') }}
     </p>
 
     <p v-if="errorCount > 0" class="admin-notice" role="alert">
-      {{ errorCount }} 张上传失败。
+      {{ t('upload.errorCount', { count: errorCount }) }}
       <button class="admin-link" type="button" @click="clearFinished">
-        清除已完成的记录
+        {{ t('upload.clearFinished') }}
       </button>
     </p>
   </div>

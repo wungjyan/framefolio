@@ -24,6 +24,8 @@ const emit = defineEmits<{
   selectTheme: [theme: GalleryTheme]
 }>()
 
+const { t } = useLocale()
+
 const hidden = ref(false)
 const targetLayout = computed<GalleryLayout>(() =>
   props.layout === 'editorial' ? 'justified' : 'editorial'
@@ -38,10 +40,10 @@ const targetTheme = computed<GalleryTheme>(() =>
   props.theme === 'dark' ? 'light' : 'dark'
 )
 const currentThemeName = computed(() =>
-  props.theme === 'dark' ? '深色主题' : '浅色主题'
+  props.theme === 'dark' ? t('theme.dark') : t('theme.light')
 )
 const targetThemeName = computed(() =>
-  targetTheme.value === 'dark' ? '深色主题' : '浅色主题'
+  targetTheme.value === 'dark' ? t('theme.dark') : t('theme.light')
 )
 const tracker = createHeaderScrollTracker()
 
@@ -155,18 +157,28 @@ function resetTracking(): void {
     :aria-hidden="hidden ? 'true' : undefined"
   >
     <h1 class="gallery-wordmark">
-      <NuxtLink to="/" aria-label="Framefolio 首页">
+      <NuxtLink to="/" :aria-label="t('gallery.home')">
         <span>FRAME</span>
         <span>FOLIO</span>
       </NuxtLink>
     </h1>
 
-    <nav class="header-controls" aria-label="画廊设置">
+    <nav class="header-controls" :aria-label="t('gallery.settings')">
       <button
         type="button"
         class="layout-switch"
-        :aria-label="`当前为 ${currentLayoutName} 布局，切换到 ${targetLayoutName} 布局`"
-        :title="`当前：${currentLayoutName}（切换到 ${targetLayoutName}）`"
+        :aria-label="
+          t('gallery.layoutAria', {
+            current: currentLayoutName,
+            target: targetLayoutName
+          })
+        "
+        :title="
+          t('gallery.layoutTitle', {
+            current: currentLayoutName,
+            target: targetLayoutName
+          })
+        "
         @click="selectTargetLayout"
       >
         <svg
@@ -190,8 +202,18 @@ function resetTracking(): void {
       <button
         type="button"
         class="theme-toggle"
-        :aria-label="`当前为${currentThemeName}，切换到${targetThemeName}`"
-        :title="`当前：${currentThemeName}（切换到${targetThemeName}）`"
+        :aria-label="
+          t('theme.aria', {
+            current: currentThemeName,
+            target: targetThemeName
+          })
+        "
+        :title="
+          t('theme.title', {
+            current: currentThemeName,
+            target: targetThemeName
+          })
+        "
         @click="selectTargetTheme"
       >
         <svg

@@ -26,6 +26,8 @@ const emit = defineEmits<{
   sync: []
 }>()
 
+const { t, intlLocale } = useLocale()
+
 const running = computed(() => props.status?.running === true)
 
 /**
@@ -52,12 +54,12 @@ const pendingLabel = computed<string | undefined>(() => {
   }
 
   if (props.pendingTotal === undefined) {
-    return '正在读取本地变更…'
+    return t('sync.pending.loading')
   }
 
   return props.pendingTotal > 0
-    ? `待同步 ${props.pendingTotal} 项`
-    : '本地无待同步变更'
+    ? t('sync.pending.count', { count: props.pendingTotal })
+    : t('sync.pending.clear')
 })
 
 const pendingIsClear = computed(
@@ -80,15 +82,17 @@ const summaryText = computed(() => {
   const summary = lastSummary.value
 
   if (!summary) {
-    return '尚未同步过'
+    return t('sync.never')
   }
 
   return [
-    `新增 ${summary.added}`,
-    `更新 ${summary.updated}`,
-    `跳过 ${summary.skipped}`,
-    `删除 ${summary.deleted}`,
-    summary.failed > 0 ? `失败 ${summary.failed}` : undefined
+    t('sync.summary.added', { count: summary.added }),
+    t('sync.summary.updated', { count: summary.updated }),
+    t('sync.summary.skipped', { count: summary.skipped }),
+    t('sync.summary.deleted', { count: summary.deleted }),
+    summary.failed > 0
+      ? t('sync.summary.failed', { count: summary.failed })
+      : undefined
   ]
     .filter(Boolean)
     .join(' · ')
@@ -102,7 +106,7 @@ const progressText = computed(() => {
   const current = progress.value
 
   return current
-    ? syncProgressText(current.phase, current.completed, current.total)
+    ? syncProgressText(current.phase, current.completed, current.total, t)
     : undefined
 })
 </script>
@@ -116,7 +120,7 @@ const progressText = computed(() => {
         :disabled="busy || running"
         @click="emit('sync')"
       >
-        {{ running ? '同步中…' : '立即同步' }}
+        {{ running ? t('sync.running') : t('sync.start') }}
       </button>
 
       <!--
@@ -143,19 +147,25 @@ const progressText = computed(() => {
         <template v-if="progress">
           {{ progressText }}
         </template>
-        <template v-else>同步中</template>
+        <template v-else>{{ t('sync.inProgress') }}</template>
       </p>
     </div>
 
     <div v-else class="admin-sync__result">
       <p class="admin-sync__detail">
-        上次同步：{{ formatDateTime(status?.last?.finishedAt) }} —
-        {{ summaryText }}
+        {{
+          t('sync.lastRun', {
+            time: formatDateTime(status?.last?.finishedAt, intlLocale)
+          })
+        }}
+        — {{ summaryText }}
       </p>
 
       <p v-if="failed" class="admin-notice admin-notice--warning" role="alert">
-        <strong>{{ lastSummary?.failed }} 张处理失败。</strong>
-        失败的照片保留上一版展示，修复原图后再同步一次即可。
+        <strong>{{
+          t('sync.failedCount', { count: lastSummary?.failed ?? 0 })
+        }}</strong>
+        {{ t('sync.failedHint') }}
         <template v-if="status?.last?.errors?.length">
           <br />
           {{ status.last.errors[0]?.filename }}：{{

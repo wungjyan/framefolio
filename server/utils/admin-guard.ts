@@ -2,6 +2,7 @@ import type { H3Event } from 'h3'
 
 import { ADMIN_CSRF_HEADER, hasValidSession } from './admin-auth'
 import { isAdminEnabled, resolveAdminConfig } from './admin-config'
+import { throwAdminError } from './admin-error'
 
 /**
  * Guard every admin API request.
@@ -17,6 +18,10 @@ export function requireAdmin(event: H3Event): void {
   const config = resolveAdminConfig()
 
   if (!isAdminEnabled(config)) {
+    // Deliberately NOT a coded error. The whole point is that an unconfigured
+    // deployment is indistinguishable from one where the routes do not exist,
+    // so this must not carry the `data.code` field that would identify it as
+    // our own response.
     throw createError({
       statusCode: 404,
       statusMessage: 'Not Found'
@@ -24,10 +29,7 @@ export function requireAdmin(event: H3Event): void {
   }
 
   if (!hasValidSession(event)) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Authentication required.'
-    })
+    throwAdminError(401, 'auth-required', 'Authentication required.')
   }
 
   assertSameOriginRequest(event)
@@ -47,9 +49,10 @@ export function assertSameOriginRequest(event: H3Event): void {
   }
 
   if (getRequestHeader(event, ADMIN_CSRF_HEADER) !== '1') {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Missing admin request header.'
-    })
+    throwAdminError(
+      403,
+      'missing-admin-header',
+      'Missing admin request header.'
+    )
   }
 }

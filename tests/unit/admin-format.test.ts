@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { translate } from '../../app/i18n/messages'
+import type { GalleryLocale } from '../../app/utils/locale'
 import {
   formatBytes,
   formatDateTime,
@@ -9,6 +11,21 @@ import {
   syncPhaseLabel,
   syncProgressText
 } from '../../app/utils/admin-format'
+
+/**
+ * These helpers now take a `t` function instead of importing the catalogue, so
+ * the locale stays owned by `useLocale`. Binding the real `translate` here keeps
+ * the assertions on real messages while making the language explicit per call.
+ */
+function bind(locale: GalleryLocale) {
+  return (
+    key: Parameters<typeof translate>[1],
+    params?: Record<string, string | number>
+  ) => translate(locale, key, params)
+}
+
+const zh = bind('zh')
+const en = bind('en')
 
 describe('formatBytes', () => {
   it('shows small sizes in bytes', () => {
@@ -72,14 +89,21 @@ describe('formatRelative', () => {
 
 describe('photoStateLabel', () => {
   it('labels each state', () => {
-    expect(photoStateLabel('added')).toBe('待新增')
-    expect(photoStateLabel('changed')).toBe('待更新')
-    expect(photoStateLabel('pending-delete')).toBe('待删除')
-    expect(photoStateLabel('unchanged')).toBe('已发布')
+    expect(photoStateLabel('added', zh)).toBe('待新增')
+    expect(photoStateLabel('changed', zh)).toBe('待更新')
+    expect(photoStateLabel('pending-delete', zh)).toBe('待删除')
+    expect(photoStateLabel('unchanged', zh)).toBe('已发布')
   })
 
   it('treats an unknown state as published', () => {
-    expect(photoStateLabel('something-else')).toBe('已发布')
+    expect(photoStateLabel('something-else', zh)).toBe('已发布')
+  })
+
+  it('labels each state in English', () => {
+    expect(photoStateLabel('added', en)).toBe('To add')
+    expect(photoStateLabel('changed', en)).toBe('To update')
+    expect(photoStateLabel('pending-delete', en)).toBe('To delete')
+    expect(photoStateLabel('unchanged', en)).toBe('Published')
   })
 })
 
@@ -87,15 +111,22 @@ describe('syncPhaseLabel', () => {
   it('translates every phase the pipeline emits', () => {
     // The raw values are internal identifiers; showing them put English words
     // like "finalising" in an otherwise Chinese panel.
-    expect(syncPhaseLabel('scanning')).toBe('扫描原图')
-    expect(syncPhaseLabel('processing')).toBe('处理中')
-    expect(syncPhaseLabel('finalising')).toBe('收尾中')
-    expect(syncPhaseLabel('done')).toBe('已完成')
+    expect(syncPhaseLabel('scanning', zh)).toBe('扫描原图')
+    expect(syncPhaseLabel('processing', zh)).toBe('处理中')
+    expect(syncPhaseLabel('finalising', zh)).toBe('收尾中')
+    expect(syncPhaseLabel('done', zh)).toBe('已完成')
   })
 
   it('has no leftover English for an unknown or missing phase', () => {
-    expect(syncPhaseLabel(undefined)).toBe('同步中')
-    expect(syncPhaseLabel('something-new')).toBe('同步中')
+    expect(syncPhaseLabel(undefined, zh)).toBe('同步中')
+    expect(syncPhaseLabel('something-new', zh)).toBe('同步中')
+  })
+
+  it('translates every phase in English', () => {
+    expect(syncPhaseLabel('scanning', en)).toBe('Scanning originals')
+    expect(syncPhaseLabel('processing', en)).toBe('Processing')
+    expect(syncPhaseLabel('finalising', en)).toBe('Finishing')
+    expect(syncPhaseLabel('done', en)).toBe('Done')
   })
 })
 
@@ -103,28 +134,35 @@ describe('syncProgressText', () => {
   it('says what the counter counts', () => {
     // Deleting 2 of 16 photos still advances to 16 / 16, because every file in
     // originals/ is checked. Without the label that reads as a bug.
-    expect(syncProgressText('processing', 12, 16)).toBe(
+    expect(syncProgressText('processing', 12, 16, zh)).toBe(
       '处理中 · 已检查原图 12 / 16'
     )
   })
 
   it('labels the finalising phase', () => {
-    expect(syncProgressText('finalising', 16, 16)).toBe(
+    expect(syncProgressText('finalising', 16, 16, zh)).toBe(
       '收尾中 · 已检查原图 16 / 16'
     )
   })
 
   it('never shows a bare fraction', () => {
-    const text = syncProgressText('processing', 0, 16)
+    const text = syncProgressText('processing', 0, 16, zh)
 
     expect(text).toContain('已检查原图')
     expect(text).not.toMatch(/^\d+\s*\/\s*\d+$/)
+  })
+
+  it('never leaks the internal phase identifier in English either', () => {
+    const text = syncProgressText('finalising', 16, 16, en)
+
+    expect(text).toBe('Finishing · checked 16 / 16 originals')
+    expect(text).not.toContain('finalising')
   })
 })
 
 describe('storageSourceSwitchMessage', () => {
   it('tells the user to refresh after switching to r2', () => {
-    const message = storageSourceSwitchMessage('r2')
+    const message = storageSourceSwitchMessage('r2', zh)
 
     expect(message).toContain('对象存储')
     expect(message).toContain('刷新首页')
@@ -134,7 +172,7 @@ describe('storageSourceSwitchMessage', () => {
     // Switching in either direction changes what /api/photos returns, but the
     // gallery already resolved its URLs on mount. Mentioning the refresh only
     // for r2 made an identical requirement look like an r2-only quirk.
-    const message = storageSourceSwitchMessage('local')
+    const message = storageSourceSwitchMessage('local', zh)
 
     expect(message).toContain('本地')
     expect(message).toContain('刷新首页')
@@ -146,7 +184,18 @@ describe('storageSourceSwitchMessage', () => {
     // same whitespace.
     const shape = /^访问源已切换为.+。刷新首页即可看到图片走\s*.+。$/
 
-    expect(storageSourceSwitchMessage('r2')).toMatch(shape)
-    expect(storageSourceSwitchMessage('local')).toMatch(shape)
+    expect(storageSourceSwitchMessage('r2', zh)).toMatch(shape)
+    expect(storageSourceSwitchMessage('local', zh)).toMatch(shape)
+  })
+
+  it('keeps both directions distinct and refresh-aware in English', () => {
+    const remote = storageSourceSwitchMessage('r2', en)
+    const local = storageSourceSwitchMessage('local', en)
+
+    expect(remote).toContain('object storage')
+    expect(remote).toContain('Refresh the home page')
+    expect(local).toContain('local')
+    expect(local).toContain('Refresh the home page')
+    expect(remote).not.toBe(local)
   })
 })

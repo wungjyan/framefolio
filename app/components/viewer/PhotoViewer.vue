@@ -17,6 +17,8 @@ const emit = defineEmits<{
   select: [photoId: string]
 }>()
 
+const { t } = useLocale()
+
 const dialog = ref<HTMLDialogElement>()
 const currentIndex = computed(() =>
   props.photoId
@@ -200,7 +202,7 @@ function unlockBackgroundScroll(): void {
   <dialog
     ref="dialog"
     class="photo-viewer"
-    aria-label="照片查看器"
+    :aria-label="t('viewer.dialog')"
     @click="handleBackdropClick"
     @close="handleClosed"
     @keydown="handleKeydown"
@@ -210,8 +212,8 @@ function unlockBackgroundScroll(): void {
         <button
           data-viewer-close
           type="button"
-          aria-label="关闭照片查看器"
-          title="关闭"
+          :aria-label="t('viewer.close')"
+          :title="t('viewer.closeShort')"
           @click="closeViewer"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -244,8 +246,8 @@ function unlockBackgroundScroll(): void {
         <button
           class="photo-viewer__nav photo-viewer__nav--previous"
           type="button"
-          aria-label="上一张照片"
-          title="上一张"
+          :aria-label="t('viewer.previous')"
+          :title="t('viewer.previousShort')"
           :disabled="!hasPrevious"
           @click="showPrevious"
         >
@@ -257,8 +259,8 @@ function unlockBackgroundScroll(): void {
         <button
           class="photo-viewer__nav photo-viewer__nav--next"
           type="button"
-          aria-label="下一张照片"
-          title="下一张"
+          :aria-label="t('viewer.next')"
+          :title="t('viewer.nextShort')"
           :disabled="!hasNext"
           @click="showNext"
         >
@@ -271,7 +273,7 @@ function unlockBackgroundScroll(): void {
       <footer
         v-if="metadata.equipment || metadata.exposure || metadata.date"
         class="photo-viewer__metadata"
-        aria-label="照片信息"
+        :aria-label="t('viewer.metadata')"
       >
         <p v-if="metadata.equipment">{{ metadata.equipment }}</p>
         <p v-if="metadata.exposure">{{ metadata.exposure }}</p>
@@ -301,7 +303,10 @@ function unlockBackgroundScroll(): void {
 
 .photo-viewer[open] {
   display: grid;
-  grid-template-rows: 4rem minmax(0, 1fr) auto;
+  /* The last row keeps its height even when the metadata footer is absent, so a
+     photo without EXIF sits exactly as high as one with it instead of running
+     into the bottom edge of the screen. */
+  grid-template-rows: 4rem minmax(0, 1fr) minmax(5.5rem, auto);
 }
 
 .photo-viewer::backdrop {
@@ -402,7 +407,6 @@ function unlockBackgroundScroll(): void {
 }
 
 .photo-viewer__metadata {
-  min-height: 5.5rem;
   padding: 1rem var(--gallery-gutter) 1.25rem;
   color: var(--gallery-muted);
   font-size: 0.6875rem;
@@ -434,7 +438,7 @@ function unlockBackgroundScroll(): void {
 
 @media (max-width: 47.999rem) {
   .photo-viewer[open] {
-    grid-template-rows: 3.5rem minmax(0, 1fr) auto;
+    grid-template-rows: 3.5rem minmax(0, 1fr) minmax(4.75rem, auto);
   }
 
   .photo-viewer__media {
@@ -456,7 +460,6 @@ function unlockBackgroundScroll(): void {
   }
 
   .photo-viewer__metadata {
-    min-height: 4.75rem;
     padding-top: 0.75rem;
   }
 }

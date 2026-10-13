@@ -1,5 +1,6 @@
 import { getAdminContext } from '../../utils/admin-context'
 import { requireAdmin } from '../../utils/admin-guard'
+import { throwAdminError } from '../../utils/admin-error'
 import {
   SyncAlreadyRunningError,
   startSyncJob
@@ -47,10 +48,11 @@ export default defineEventHandler(async event => {
     if (error instanceof SyncAlreadyRunningError) {
       // 409 tells the UI "nothing is wrong, just wait"; the running job's
       // progress is available at GET /api/admin/sync.
-      throw createError({
-        statusCode: 409,
-        statusMessage: error.message
-      })
+      throwAdminError(
+        409,
+        'sync-already-running',
+        'A gallery sync is already running.'
+      )
     }
 
     throw error

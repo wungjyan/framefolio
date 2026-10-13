@@ -24,6 +24,8 @@ import {
   watchEffect
 } from 'vue'
 
+import { installTestUseLocale } from '../helpers/locale'
+
 const globals = {
   computed,
   nextTick,
@@ -43,3 +45,14 @@ for (const [name, value] of Object.entries(globals)) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ;(globalThis as any)[name] = value
 }
+
+/**
+ * `useLocale` is installed as a stand-in rather than stubbed per test file.
+ *
+ * Every admin component calls it, so stubbing individually would be noise. The
+ * stand-in uses the real catalogues and the real error-code mapping, so a
+ * missing translation or an unmapped code still fails; only the *resolution* of
+ * the locale (localStorage / navigator.language) is replaced, and that has its
+ * own unit tests.
+ */
+installTestUseLocale()

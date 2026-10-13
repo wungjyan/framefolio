@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import type { AdminDeleteResponse } from '../../../../shared/types/admin'
 import { getAdminContext } from '../../../utils/admin-context'
 import { requireAdmin } from '../../../utils/admin-guard'
+import { throwAdminError } from '../../../utils/admin-error'
 import { resolveOriginalPath } from '../../../utils/admin-gallery'
 import { sanitizeUploadFilename } from '../../../utils/admin-upload'
 
@@ -25,13 +26,13 @@ export default defineEventHandler(async event => {
     : undefined
 
   if (!filename) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid filename.' })
+    throwAdminError(400, 'invalid-filename', 'Invalid filename.')
   }
 
   const sourcePath = resolveOriginalPath(paths.originals, filename)
 
   if (!sourcePath) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid filename.' })
+    throwAdminError(400, 'invalid-filename', 'Invalid filename.')
   }
 
   // Mirror the nested layout inside .trash/ so two files with the same basename
@@ -44,17 +45,17 @@ export default defineEventHandler(async event => {
     await rename(sourcePath, trashPath)
   } catch (error: unknown) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      throw createError({ statusCode: 404, statusMessage: 'Photo not found.' })
+      throwAdminError(404, 'photo-not-found', 'Photo not found.')
     }
 
     // A cross-device move cannot use rename; fall back to copy semantics only
     // when the trash directory lives on another filesystem.
     if ((error as NodeJS.ErrnoException).code === 'EXDEV') {
-      throw createError({
-        statusCode: 500,
-        statusMessage:
-          'The trash directory is on a different filesystem; move it next to originals.'
-      })
+      throwAdminError(
+        500,
+        'trash-cross-device',
+        'The trash directory is on a different filesystem; move it next to originals.'
+      )
     }
 
     throw error

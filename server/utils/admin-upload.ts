@@ -9,6 +9,7 @@
 import { open } from 'node:fs/promises'
 import { extname } from 'node:path'
 
+import type { AdminErrorCode } from '../../shared/constants/admin-errors'
 import {
   DIMENSION_HEADER_BYTES,
   MAX_DIMENSION_HEADER_BYTES,
@@ -32,8 +33,14 @@ export type ImageFormat = 'jpeg' | 'png' | 'webp' | 'tiff' | 'heic' | 'avif'
 
 export interface UploadValidation {
   ok: boolean
-  /** Reason the upload was rejected, suitable for showing to the admin user. */
-  reason?: string
+  /**
+   * Why the upload was rejected, as a stable code plus values.
+   *
+   * A code rather than a sentence: the admin UI is bilingual and translates it,
+   * so the server must not decide the wording. `params` holds only values
+   * (extensions, format names) that need no translation.
+   */
+  error?: { code: AdminErrorCode; params?: Record<string, string | number> }
   format?: ImageFormat
   /**
    * Pixel dimensions, when they could be read from the header.
@@ -62,7 +69,10 @@ export async function validateUploadedImage(
   if (!acceptedFormats) {
     return {
       ok: false,
-      reason: `Unsupported file type "${extension || originalFilename}".`
+      error: {
+        code: 'upload-unsupported-type',
+        params: { extension: extension || originalFilename }
+      }
     }
   }
 
@@ -70,13 +80,16 @@ export async function validateUploadedImage(
   const header = await readImageHeader(filePath)
 
   if (!header.format) {
-    return { ok: false, reason: 'The file is not a recognisable image.' }
+    return { ok: false, error: { code: 'upload-not-an-image' } }
   }
 
   if (!acceptedFormats.includes(header.format)) {
     return {
       ok: false,
-      reason: `The file contents (${header.format}) do not match its extension (${extension}).`
+      error: {
+        code: 'upload-extension-mismatch',
+        params: { format: header.format, extension }
+      }
     }
   }
 

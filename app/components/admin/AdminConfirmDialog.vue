@@ -22,6 +22,7 @@ const emit = defineEmits<{
 
 const dialog = ref<HTMLDialogElement>()
 const confirmButton = ref<HTMLButtonElement>()
+const { t } = useLocale()
 
 watch(
   () => props.open,
@@ -58,15 +59,17 @@ function onCancel(event: Event): void {
 <template>
   <dialog ref="dialog" class="admin-dialog" @cancel="onCancel">
     <form method="dialog" class="admin-dialog__body" @submit.prevent>
-      <h2 class="admin-dialog__title">移入回收站</h2>
+      <h2 class="admin-dialog__title">{{ t('delete.title') }}</h2>
 
       <p class="admin-dialog__text">
-        确定要将 <strong>{{ filename }}</strong> 移入回收站吗？
+        {{ t('delete.questionBefore') }}
+        <strong>{{ filename }}</strong>
+        {{ t('delete.questionAfter') }}
       </p>
 
       <p class="admin-dialog__note">
-        原图不会立即永久删除，仍可手动恢复。
-        <strong>完成同步前，照片会继续显示在公开画廊中。</strong>
+        {{ t('delete.note') }}
+        <strong>{{ t('delete.noteStrong') }}</strong>
       </p>
 
       <div class="admin-dialog__actions">
@@ -76,7 +79,7 @@ function onCancel(event: Event): void {
           :disabled="busy"
           @click="emit('cancel')"
         >
-          取消
+          {{ t('common.cancel') }}
         </button>
         <button
           ref="confirmButton"
@@ -85,7 +88,7 @@ function onCancel(event: Event): void {
           :disabled="busy"
           @click="emit('confirm')"
         >
-          {{ busy ? '删除中…' : '移入回收站' }}
+          {{ busy ? t('delete.busy') : t('delete.title') }}
         </button>
       </div>
     </form>

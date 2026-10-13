@@ -1,5 +1,6 @@
 import { isAdminEnabled, resolveAdminConfig } from '../utils/admin-config'
 import { hasValidSession } from '../utils/admin-auth'
+import { throwAdminError } from '../utils/admin-error'
 
 /**
  * Hide the entire admin API when no password is configured.
@@ -22,6 +23,9 @@ export default defineEventHandler(event => {
   const config = resolveAdminConfig()
 
   if (!isAdminEnabled(config)) {
+    // Uncoded on purpose, matching `requireAdmin`: an unconfigured deployment
+    // must stay indistinguishable from one where these routes do not exist, so
+    // this response must not carry the `data.code` field that identifies it.
     throw createError({
       statusCode: 404,
       statusMessage: 'Not Found'
@@ -35,9 +39,6 @@ export default defineEventHandler(event => {
   }
 
   if (!hasValidSession(event)) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: 'Authentication required.'
-    })
+    throwAdminError(401, 'auth-required', 'Authentication required.')
   }
 })

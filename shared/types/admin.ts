@@ -162,6 +162,17 @@ export interface AdminStorageStatusResponse {
   effectiveSource: 'local' | 'r2'
   configured: boolean
   connected?: boolean
+  /**
+   * Raw connection error text from the S3 client.
+   *
+   * Deliberately NOT a code: this is a library or network message (a DNS
+   * failure, a rejected signature) that cannot be enumerated, so it cannot be
+   * translated. The surrounding label is translated; the fragment stays exactly
+   * as the provider reported it, which is also what makes it useful.
+   *
+   * A "not configured" state does not use this field: the UI derives it from
+   * `configured === false` and uses a translated message.
+   */
   message?: string
   publicBaseUrl?: string
   prefix?: string

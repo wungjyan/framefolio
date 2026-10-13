@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 
 import { flushPromises, mount } from '@vue/test-utils'
@@ -12,6 +13,7 @@ import AdminUploader from '../../app/components/admin/AdminUploader.vue'
 import AdminVersionBadge from '../../app/components/admin/AdminVersionBadge.vue'
 import AdminPhotoList from '../../app/components/admin/AdminPhotoList.vue'
 import type { AdminPhoto } from '../../shared/types/admin'
+import { setTestLocale, resetTestLocale } from '../helpers/locale'
 
 /**
  * Component tests for the admin UI.
@@ -39,6 +41,9 @@ function createPhoto(overrides: Partial<AdminPhoto> = {}): AdminPhoto {
 
 afterEach(() => {
   document.body.innerHTML = ''
+  // The locale stand-in is module-level, so a test that switches to English
+  // would otherwise leak that choice into every test after it.
+  resetTestLocale()
 })
 
 describe('AdminLogin', () => {
@@ -352,7 +357,14 @@ describe('AdminUploader', () => {
   })
 
   it('reports a failed upload without losing the list', async () => {
-    uploadPhoto.mockRejectedValueOnce(new Error('文件过大'))
+    // A coded server error is translated, not echoed: the server cannot know
+    // which language the UI is showing, so it returns `upload-too-large` and the
+    // wording is looked up here.
+    uploadPhoto.mockRejectedValueOnce(
+      Object.assign(new Error('Upload exceeds the 100 MB limit.'), {
+        data: { code: 'upload-too-large', params: { limitMb: 100 } }
+      })
+    )
 
     const wrapper = mount(AdminUploader)
     const file = new File(['x'], 'big.jpg', { type: 'image/jpeg' })
@@ -362,8 +374,50 @@ describe('AdminUploader', () => {
     await wrapper.find('input[type="file"]').trigger('change')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('文件过大')
+    expect(wrapper.text()).toContain('上传超过 100 MB 的限制')
     expect(wrapper.text()).toContain('1 张上传失败')
+
+    wrapper.unmount()
+  })
+
+  it('does not leak an untranslated server message', async () => {
+    // A dropped connection or an unmapped failure carries no code, so the UI
+    // shows its own generic message rather than the server's English prose —
+    // which would otherwise appear verbatim inside a Chinese interface.
+    uploadPhoto.mockRejectedValueOnce(new Error('socket hang up'))
+
+    const wrapper = mount(AdminUploader)
+    const file = new File(['x'], 'broken.jpg', { type: 'image/jpeg' })
+    Object.defineProperty(wrapper.find('input[type="file"]').element, 'files', {
+      value: [file]
+    })
+    await wrapper.find('input[type="file"]').trigger('change')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('socket hang up')
+    expect(wrapper.text()).toContain('上传失败')
+
+    wrapper.unmount()
+  })
+
+  it('translates a coded upload failure into English when English is selected', async () => {
+    setTestLocale('en')
+    uploadPhoto.mockRejectedValueOnce(
+      Object.assign(new Error('Unsupported image.'), {
+        data: { code: 'upload-not-an-image' }
+      })
+    )
+
+    const wrapper = mount(AdminUploader)
+    const file = new File(['x'], 'notes.jpg', { type: 'image/jpeg' })
+    Object.defineProperty(wrapper.find('input[type="file"]').element, 'files', {
+      value: [file]
+    })
+    await wrapper.find('input[type="file"]').trigger('change')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('The file is not a recognisable image.')
+    expect(wrapper.text()).toContain('1 failed to upload')
 
     wrapper.unmount()
   })
@@ -750,8 +804,71 @@ describe('attention notice styling', () => {
     // accent keeps meaning "nothing is broken, it just is not live yet".
     const admin = await readFile('app/pages/admin/index.vue', 'utf8')
 
-    expect(admin).toContain("'同步失败。'")
-    expect(admin).toMatch(/readMessage\(error, '同步失败。'\),\s*'warning'/)
+    // The wording now lives in the catalogue, so this asserts the tone rather
+    // than the sentence: a failure must be reported with `warning` (or through
+    // `translateError`, which defaults to it), never with `attention`.
+    expect(admin).toMatch(/translateError\(error, 'sync\.failed'\), 'warning'/)
+    expect(admin).not.toMatch(/setMessage\([^)]*'attention'[\s\S]{0,200}失败/)
+  })
+})
+
+describe('header icon toggles', () => {
+  it('sizes the theme and language icons with one shared rule', async () => {
+    // These two sit side by side in the same row. When each carried its own
+    // size, the language icon rendered larger (20px vs 18px) and its identical
+    // `--gallery-muted` stroke looked noticeably darker — a colour difference
+    // that was really a geometry difference. One rule keeps them in step.
+    const css = await readAdminCss()
+    const block =
+      /\.admin-theme-toggle svg,\s*\.admin-locale-toggle svg \{([^}]*)\}/.exec(
+        css
+      )?.[1] ?? ''
+
+    expect(
+      block,
+      'expected one shared rule covering both header icon toggles'
+    ).not.toBe('')
+    expect(block).toContain('width: 1.125rem')
+    expect(block).toContain('height: 1.125rem')
+    expect(block).toContain('stroke-width: 1.5')
+  })
+
+  it('does not let either toggle set its own box or icon size', async () => {
+    // The mismatch came from the language toggle declaring scoped width/height
+    // and padding while the theme toggle declared neither. Reintroducing a
+    // per-component box is what would bring the size difference back.
+    const css = await readAdminCss()
+
+    expect(cssRule(css, '.admin-locale-toggle')).toBe('')
+    expect(cssRule(css, '.admin-theme-toggle')).toBe('')
+
+    const scoped = await readFile(
+      'app/components/admin/AdminLocaleToggle.vue',
+      'utf8'
+    )
+
+    // No local style block at all: the component leans on admin.css exactly as
+    // AdminThemeToggle does.
+    expect(scoped).not.toContain('<style')
+  })
+
+  it('inherits its colour rather than hard-coding a grey', () => {
+    // Both icons must take `currentColor` from `.admin-link`. A literal grey in
+    // either component would let the two drift apart in tone again, and would
+    // also break the hover state that darkens the whole row.
+    const localeToggle = readFileSync(
+      'app/components/admin/AdminLocaleToggle.vue',
+      'utf8'
+    )
+    const themeToggle = readFileSync(
+      'app/components/admin/AdminThemeToggle.vue',
+      'utf8'
+    )
+
+    for (const source of [localeToggle, themeToggle]) {
+      expect(source).not.toMatch(/stroke="#/)
+      expect(source).not.toMatch(/fill="#/)
+    }
   })
 })
 
